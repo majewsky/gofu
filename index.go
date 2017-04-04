@@ -28,26 +28,15 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-//Repo describes the entry for a repository in the index file.
-type Repo struct {
-	//Remotes maps remote names (as noted in the .git/config of the repo) to
-	//remote URLs (as they appear in the .git/config of the repo, i.e. possibly
-	//abbreviated).
-	Remotes map[string]string `yaml:"remotes"`
-	//CheckoutPath shall be relative to the Index.RootPath.
-	CheckoutPath string `yaml:"path"`
-}
-
 //Index represents the contents of the index file.
 type Index struct {
-	RootPath string `yaml:"root"`
-	Repos    []Repo `yaml:"repos"`
+	Repos []*Repo `yaml:"repos"`
 }
 
 func indexPath() string {
 	homeDir := os.Getenv("HOME")
 	if homeDir == "" {
-		FatalIfError(errors.New("$HOME is not set"))
+		FatalIfError(errors.New("$HOME is not set (rtree needs the HOME variable to locate its index file)"))
 	}
 	return filepath.Join(homeDir, ".rtree/index.yaml")
 }
@@ -59,12 +48,7 @@ func ReadIndex() *Index {
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			//initialize empty index
-			rootPath := os.Getenv("GOPATH")
-			if rootPath == "" {
-				FatalIfError(fmt.Errorf("cannot initialize %s ($GOPATH not set)", path))
-			}
-			return &Index{RootPath: rootPath}
+			return &Index{Repos: nil}
 		}
 		FatalIfError(err)
 	}
@@ -75,10 +59,6 @@ func ReadIndex() *Index {
 
 	//validate YAML
 	valid := true
-	if index.RootPath == "" {
-		ShowError(errors.New("missing \"root\""))
-		valid = false
-	}
 	for idx, repo := range index.Repos {
 		if repo.CheckoutPath == "" {
 			ShowError(fmt.Errorf("missing \"repos[%d].path\"", idx))
@@ -88,13 +68,13 @@ func ReadIndex() *Index {
 			ShowError(fmt.Errorf("missing \"repos[%d].remotes\"", idx))
 			valid = false
 		}
-		for remoteName, remoteURL := range repo.Remotes {
+		for idx2, remote := range repo.Remotes {
 			switch {
-			case remoteName == "":
-				ShowError(fmt.Errorf("empty remote name found in \"repos[%d]\"", idx))
+			case remote.Name == "":
+				ShowError(fmt.Errorf("missing \"repos[%d].remotes[%d].name\"", idx, idx2))
 				valid = false
-			case remoteURL == "":
-				ShowError(fmt.Errorf("missing remote URL for remote \"%s\" in \"repos[%d]\"", idx, remoteName))
+			case remote.URL == "":
+				ShowError(fmt.Errorf("missing \"repos[%d].remotes[%d].url\"", idx, idx2))
 				valid = false
 			}
 		}
