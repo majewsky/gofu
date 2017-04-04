@@ -22,8 +22,15 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
+
+//ShowSorted sorts the given lines and prints them on stdout.
+func ShowSorted(lines []string) {
+	sort.Strings(lines)
+	fmt.Println(strings.Join(lines, "\n"))
+}
 
 //ShowError prints the given error on stderr if it is non-nil, or returns false otherwise.
 func ShowError(err error) bool {

@@ -21,7 +21,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -40,13 +42,22 @@ func main() {
 		}
 		commandIndex()
 	case "repos":
-		panic("unimplemented")
+		if len(os.Args) != 2 {
+			usageAndExit()
+		}
+		commandRepos()
 	case "remotes":
-		panic("unimplemented")
+		if len(os.Args) != 2 {
+			usageAndExit()
+		}
+		commandRemotes()
 	case "import":
 		panic("unimplemented")
 	case "each":
-		panic("unimplemented")
+		if len(os.Args) < 3 {
+			usageAndExit()
+		}
+		commandEach(os.Args[2], os.Args[3:])
 	default:
 		usageAndExit()
 	}
@@ -132,4 +143,52 @@ func commandIndex() {
 	}))
 
 	newIndex.Write()
+}
+
+func commandRepos() {
+	index := ReadIndex()
+	var items []string
+	for _, repo := range index.Repos {
+		items = append(items, repo.CheckoutPath)
+	}
+	ShowSorted(items)
+}
+
+func commandRemotes() {
+	index := ReadIndex()
+	var items []string
+	for _, repo := range index.Repos {
+		for _, remote := range repo.Remotes {
+			items = append(items, remote.URL)
+		}
+	}
+	ShowSorted(items)
+}
+
+func commandEach(command string, args []string) {
+	index := ReadIndex()
+
+	var paths []string
+	for _, repo := range index.Repos {
+		paths = append(paths, repo.AbsolutePath())
+	}
+	sort.Strings(paths)
+
+	hadErrors := false
+	for _, path := range paths {
+		fmt.Fprintf(os.Stdout, "\x1B[1;36m>> \x1B[0;36m%s\x1B[0m\n", path)
+		cmd := exec.Command(command, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Dir = path
+		err := cmd.Run()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "\x1B[1;31m!! \x1B[0;31m%s\x1B[0m\n", err.Error())
+			hadErrors = true
+		}
+	}
+
+	if hadErrors {
+		os.Exit(1)
+	}
 }
