@@ -20,7 +20,9 @@ package rtree
 
 import (
 	"bytes"
+	"net/url"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -64,17 +66,41 @@ func init() {
 //    insteadOf = gh:
 //
 //and the input "gh:foo/bar", this function returns "git://github.com/foo/bar".
-func ExpandRemoteURL(url string) string {
+func ExpandRemoteURL(remoteURL string) string {
 	var best *remoteAlias
 	for _, current := range remoteAliases {
-		if strings.HasPrefix(url, current.Alias) {
+		if strings.HasPrefix(remoteURL, current.Alias) {
 			if best == nil || len(best.Alias) < len(current.Alias) {
 				best = current
 			}
 		}
 	}
 	if best == nil {
-		return url
+		return remoteURL
 	}
-	return best.Replacement + strings.TrimPrefix(url, best.Alias)
+	return best.Replacement + strings.TrimPrefix(remoteURL, best.Alias)
+}
+
+//This regex recognizes the scp-like syntax for git remotes
+//(i.e. "[user@]example.org:path/to/repo") as specified by the "GIT URLS"
+//section of man:git-clone(1).
+var scpSyntaxRx = regexp.MustCompile(`^(?:[^/@:]+@)?([^/:]+\.[^/:]+):(.+)$`)
+
+//CheckoutPathForRemoteURL derives the checkout path for a remote URL that has
+//already been expanded with ExpandRemoteURL() if necessary.
+//
+//  "https://example.org/foo/bar" -> "example.org/foo/bar"
+//  "git@example.org:foo/bar"     -> "example.org/foo/bar"
+//
+func CheckoutPathForRemoteURL(remoteURL string) string {
+	match := scpSyntaxRx.FindStringSubmatch(remoteURL)
+	if match != nil {
+		//match[1] is the hostname, match[2] is the path to the repo
+		return filepath.Join(match[1], match[2])
+	}
+
+	u, err := url.Parse(remoteURL)
+	util.FatalIfError(err)
+
+	return filepath.Join(u.Hostname(), u.Path)
 }

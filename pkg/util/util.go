@@ -21,6 +21,7 @@ package util
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -57,12 +58,12 @@ var stdin = bufio.NewReader(os.Stdin)
 //
 //    choice := Prompt("(y)es or (n)o", []string{"y","n"})
 //    //choice is either "y" or "n"
-func Prompt(question string, answers []string) string {
+func Prompt(out io.Writer, question string, answers []string) string {
 	for idx, answer := range answers {
 		answers[idx] = strings.ToLower(answer)
 	}
 
-	os.Stdout.Write([]byte(">> " + strings.TrimSpace(question) + " "))
+	out.Write([]byte(">> " + strings.TrimSpace(question) + " "))
 	for {
 		input, err := stdin.ReadString('\n')
 		FatalIfError(err)
@@ -74,17 +75,24 @@ func Prompt(question string, answers []string) string {
 		}
 
 		//user typed gibberish - ask again
-		os.Stdout.Write([]byte("Please type "))
+		out.Write([]byte("Please type "))
 		for idx, answer := range answers {
 			if idx > 0 {
 				if idx == len(answers)-1 {
-					os.Stdout.Write([]byte(" or "))
+					out.Write([]byte(" or "))
 				} else {
-					os.Stdout.Write([]byte(", "))
+					out.Write([]byte(", "))
 				}
 			}
-			os.Stdout.Write([]byte("'" + answer + "'"))
+			out.Write([]byte("'" + answer + "'"))
 		}
-		os.Stdout.Write([]byte(": "))
+		out.Write([]byte(": "))
 	}
+}
+
+//ReadLine reads a line from stdin, with whitespace already trimmed.
+func ReadLine() string {
+	input, err := stdin.ReadString('\n')
+	FatalIfError(err)
+	return strings.TrimSpace(input)
 }

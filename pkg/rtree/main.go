@@ -33,7 +33,10 @@ func Exec(args []string) {
 	}
 	switch args[0] {
 	case "get":
-		panic("unimplemented")
+		if len(args) != 2 {
+			usageAndExit()
+		}
+		commandGet(args[1])
 	case "drop":
 		panic("unimplemented")
 	case "index":
@@ -72,6 +75,14 @@ func usageAndExit() {
 	fmt.Fprintln(os.Stderr, "  rtree import <path>")
 	fmt.Fprintln(os.Stderr, "  rtree each <command>")
 	os.Exit(1)
+}
+
+func commandGet(url string) {
+	index := ReadIndex()
+	repo := index.InteractiveFindRepo(url, true)
+	if repo != nil {
+		fmt.Println(repo.AbsolutePath())
+	}
 }
 
 func commandIndex() {

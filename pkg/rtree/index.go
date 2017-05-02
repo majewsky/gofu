@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -142,12 +144,12 @@ func (i *Index) InteractiveRebuild() error {
 
 		var choice string
 		if len(remoteURLs) == 0 {
-			choice = util.Prompt(
+			choice = util.Prompt(os.Stdout,
 				"no remote to restore from; (d)elete from index or (s)kip?",
 				[]string{"d", "s"},
 			)
 		} else {
-			choice = util.Prompt(
+			choice = util.Prompt(os.Stdout,
 				fmt.Sprintf("(r)estore from %s, (d)elete from index, or (s)kip?", strings.Join(remoteURLs, " and ")),
 				[]string{"r", "d", "s"},
 			)
@@ -184,4 +186,112 @@ func (i *Index) InteractiveRebuild() error {
 
 	i.Repos = newRepos
 	return nil
+}
+
+var tenLetters = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
+
+//InteractiveFindRepo locates the repo with the given remote if it exists on
+//disk or (if allowClone is set) clones it and adds it to the index. This
+//is the meat of `rtree get`, and is also used by `rtree drop`.
+func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
+	//NOTE: This function prints *everything* on stderr, because stdout is
+	//reserved for the result path during `rtree get`.
+
+	expandedRemoteURL := ExpandRemoteURL(remoteURL)
+	basename := path.Base(expandedRemoteURL)
+
+	//is this remote already checked out directly? also look for repos with the
+	//same basename that could be forks
+	var candidates []*Repo
+	for _, repo := range i.Repos {
+		isCandidate := false
+		for _, remote := range repo.Remotes {
+			otherExpandedRemoteURL := ExpandRemoteURL(remote.URL)
+			if expandedRemoteURL == otherExpandedRemoteURL {
+				return repo
+			}
+			if basename == path.Base(otherExpandedRemoteURL) {
+				isCandidate = true
+			}
+		}
+		if isCandidate {
+			candidates = append(candidates, repo)
+		}
+	}
+
+	//double-check if the repo is already checked out, but we didn't notice it yet
+	newRepo := NewRepoFromRemoteURL(remoteURL)
+	if newRepo.ExistsOnDisk() {
+		util.FatalIfError(fmt.Errorf(
+			"%s already exists (if there is a repo there, try `rtree index`)",
+			newRepo.AbsolutePath(),
+		))
+	}
+
+	if !allowClone {
+		return nil
+	}
+
+	//if no fork candidates found, clone as new repo
+	if len(candidates) == 0 {
+		util.FatalIfError(newRepo.Checkout())
+		i.Repos = append(i.Repos, &newRepo)
+		i.Write()
+		return &newRepo
+	}
+
+	//if we found fork candidates, ask the user to match the repo with a fork
+	//candidate (or confirm that the repo shall be cloned fresh)
+	if len(candidates) > 10 {
+		candidates = candidates[:10]
+	}
+	prompt := "Found possible fork candidates.\n"
+	for idx, repo := range candidates {
+		prompt += fmt.Sprintf("\t(%s) add as remote to %s\n", tenLetters[idx], repo.AbsolutePath())
+	}
+	prompt += fmt.Sprintf("\t(x) clone to %s\nSelect action:", newRepo.AbsolutePath())
+	choices := append([]string{"x"}, tenLetters[:len(candidates)]...)
+	choice := util.Prompt(os.Stderr, prompt, choices)
+
+	if choice == "x" {
+		util.FatalIfError(newRepo.Checkout())
+		i.Repos = append(i.Repos, &newRepo)
+		i.Write()
+		return &newRepo
+	}
+
+	//find the repo selected by the user
+	var target *Repo
+	for idx, str := range choices {
+		if choice == str {
+			target = candidates[idx-1]
+		}
+	}
+
+	//report the existing remotes, and ask for the name of the new remote
+	fmt.Fprintln(os.Stderr, "Existing remotes:")
+	for _, remote := range target.Remotes {
+		fmt.Fprintf(os.Stderr, "\t(%s) %s\n", remote.Name, remote.URL)
+	}
+	fmt.Fprintf(os.Stderr, "Enter remote name for %s: ", remoteURL)
+	remoteName := util.ReadLine()
+
+	cmd := exec.Command("git", "remote", "add", remoteName, remoteURL)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	cmd.Dir = target.AbsolutePath()
+	util.FatalIfError(cmd.Run())
+
+	cmd = exec.Command("git", "remote", "update", remoteName)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	cmd.Dir = target.AbsolutePath()
+	util.FatalIfError(cmd.Run())
+
+	target.Remotes = append(target.Remotes, Remote{
+		Name: remoteName,
+		URL:  remoteURL,
+	})
+	i.Write()
+	return target
 }

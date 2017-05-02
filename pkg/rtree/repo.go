@@ -95,6 +95,20 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 	return
 }
 
+//NewRepoFromRemoteURL initializes a Repo instance for checking out a remote
+//for the first time. The checkout does not happen until Checkout() is called.
+func NewRepoFromRemoteURL(remoteURL string) Repo {
+	return Repo{
+		CheckoutPath: CheckoutPathForRemoteURL(ExpandRemoteURL(remoteURL)),
+		Remotes: []Remote{
+			{
+				Name: "origin",
+				URL:  remoteURL,
+			},
+		},
+	}
+}
+
 var remoteConfigRx = regexp.MustCompile(`remote\.([^=]+)\.url=(.+)`)
 
 //ForeachPhysicalRepo walks over the repository tree, executing the action
@@ -125,6 +139,22 @@ func ForeachPhysicalRepo(action func(repo Repo) error) error {
 		//do not traverse further down into submodules etc.
 		return filepath.SkipDir
 	})
+}
+
+//ExistsOnDisk returns true if the top directory of this repo exists.
+func (r Repo) ExistsOnDisk() bool {
+	path := r.AbsolutePath()
+	fi, err := os.Stat(path)
+	if err == nil {
+		if !fi.IsDir() {
+			util.FatalIfError(fmt.Errorf("expected %s to be a directory, but it is not", path))
+		}
+		return true
+	}
+	if !os.IsNotExist(err) {
+		util.FatalIfError(err)
+	}
+	return false
 }
 
 //Checkout creates the repo in the given path with the given remotes. The
