@@ -16,7 +16,7 @@
 *
 *******************************************************************************/
 
-package main
+package rtree
 
 import (
 	"bytes"
@@ -27,6 +27,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/majewsky/gofu/pkg/util"
 )
 
 //RootPath is the directory below which all repositories are located. Its value
@@ -36,7 +38,7 @@ var RootPath string
 func init() {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
-		FatalIfError(errors.New("$GOPATH is not set (rtree needs the GOPATH variable to know where to look for and place repos)"))
+		util.FatalIfError(errors.New("$GOPATH is not set (rtree needs the GOPATH variable to know where to look for and place repos)"))
 	}
 	RootPath = filepath.Join(gopath, "src")
 }

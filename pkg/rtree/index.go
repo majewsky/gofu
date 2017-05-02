@@ -16,7 +16,7 @@
 *
 *******************************************************************************/
 
-package main
+package rtree
 
 import (
 	"errors"
@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/majewsky/gofu/pkg/util"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -38,7 +40,7 @@ type Index struct {
 func indexPath() string {
 	homeDir := os.Getenv("HOME")
 	if homeDir == "" {
-		FatalIfError(errors.New("$HOME is not set (rtree needs the HOME variable to locate its index file)"))
+		util.FatalIfError(errors.New("$HOME is not set (rtree needs the HOME variable to locate its index file)"))
 	}
 	return filepath.Join(homeDir, ".rtree/index.yaml")
 }
@@ -52,38 +54,38 @@ func ReadIndex() *Index {
 		if os.IsNotExist(err) {
 			return &Index{Repos: nil}
 		}
-		FatalIfError(err)
+		util.FatalIfError(err)
 	}
 
 	//deserialize YAML
 	var index Index
-	FatalIfError(yaml.Unmarshal(buf, &index))
+	util.FatalIfError(yaml.Unmarshal(buf, &index))
 
 	//validate YAML
 	valid := true
 	for idx, repo := range index.Repos {
 		if repo.CheckoutPath == "" {
-			ShowError(fmt.Errorf("missing \"repos[%d].path\"", idx))
+			util.ShowError(fmt.Errorf("missing \"repos[%d].path\"", idx))
 			valid = false
 		}
 		if len(repo.Remotes) == 0 {
-			ShowError(fmt.Errorf("missing \"repos[%d].remotes\"", idx))
+			util.ShowError(fmt.Errorf("missing \"repos[%d].remotes\"", idx))
 			valid = false
 		}
 		for idx2, remote := range repo.Remotes {
 			switch {
 			case remote.Name == "":
-				ShowError(fmt.Errorf("missing \"repos[%d].remotes[%d].name\"", idx, idx2))
+				util.ShowError(fmt.Errorf("missing \"repos[%d].remotes[%d].name\"", idx, idx2))
 				valid = false
 			case remote.URL == "":
-				ShowError(fmt.Errorf("missing \"repos[%d].remotes[%d].url\"", idx, idx2))
+				util.ShowError(fmt.Errorf("missing \"repos[%d].remotes[%d].url\"", idx, idx2))
 				valid = false
 			}
 		}
 	}
 
 	if !valid {
-		FatalIfError(errors.New("index file is corrupted; see errors above"))
+		util.FatalIfError(errors.New("index file is corrupted; see errors above"))
 	}
 
 	sort.Sort(reposByAbsPath(index.Repos))
@@ -99,10 +101,10 @@ func (r reposByAbsPath) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 //Write writes the index file to disk.
 func (i *Index) Write() {
 	buf, err := yaml.Marshal(i)
-	FatalIfError(err)
+	util.FatalIfError(err)
 	path := indexPath()
-	FatalIfError(os.MkdirAll(filepath.Dir(path), 0755))
-	FatalIfError(ioutil.WriteFile(path, buf, 0644))
+	util.FatalIfError(os.MkdirAll(filepath.Dir(path), 0755))
+	util.FatalIfError(ioutil.WriteFile(path, buf, 0644))
 }
 
 //InteractiveRebuild implements the `rtree index` subcommand.
@@ -140,12 +142,12 @@ func (i *Index) InteractiveRebuild() error {
 
 		var choice string
 		if len(remoteURLs) == 0 {
-			choice = Prompt(
+			choice = util.Prompt(
 				"no remote to restore from; (d)elete from index or (s)kip?",
 				[]string{"d", "s"},
 			)
 		} else {
-			choice = Prompt(
+			choice = util.Prompt(
 				fmt.Sprintf("(r)estore from %s, (d)elete from index, or (s)kip?", strings.Join(remoteURLs, " and ")),
 				[]string{"r", "d", "s"},
 			)

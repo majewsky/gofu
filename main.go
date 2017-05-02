@@ -21,89 +21,28 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"github.com/majewsky/gofu/pkg/rtree"
 )
 
 func main() {
-	if len(os.Args) == 1 {
-		usageAndExit()
-	}
-	switch os.Args[1] {
-	case "get":
-		panic("unimplemented")
-	case "drop":
-		panic("unimplemented")
-	case "index":
-		if len(os.Args) != 2 {
-			usageAndExit()
-		}
-		commandIndex()
-	case "repos":
-		if len(os.Args) != 2 {
-			usageAndExit()
-		}
-		commandRepos()
-	case "remotes":
-		if len(os.Args) != 2 {
-			usageAndExit()
-		}
-		commandRemotes()
-	case "import":
-		panic("unimplemented")
-	case "each":
-		if len(os.Args) < 3 {
-			usageAndExit()
-		}
-		commandEach(os.Args[2], os.Args[3:])
-	default:
-		usageAndExit()
-	}
+	execApplet(filepath.Base(os.Args[0]), os.Args[1:], true)
 }
 
-func usageAndExit() {
-	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  rtree [get|drop] <url>")
-	fmt.Fprintln(os.Stderr, "  rtree [index|repos|remotes]")
-	fmt.Fprintln(os.Stderr, "  rtree import <path>")
-	fmt.Fprintln(os.Stderr, "  rtree each <command>")
-	os.Exit(1)
-}
-
-func commandIndex() {
-	index := ReadIndex()
-	FatalIfError(index.InteractiveRebuild())
-	index.Write()
-}
-
-func commandRepos() {
-	index := ReadIndex()
-	var items []string
-	for _, repo := range index.Repos {
-		items = append(items, repo.CheckoutPath)
-	}
-	ShowSorted(items)
-}
-
-func commandRemotes() {
-	index := ReadIndex()
-	var items []string
-	for _, repo := range index.Repos {
-		for _, remote := range repo.Remotes {
-			items = append(items, remote.URL)
+func execApplet(applet string, args []string, allowGofu bool) {
+	//allow explicit specification of applet as "./build/gofu <applet> <args>"
+	if allowGofu && applet == "gofu" {
+		if len(args) == 0 {
+			fmt.Fprintln(os.Stderr, "Usage: gofu <applet> [args...]")
+			os.Exit(1)
 		}
-	}
-	ShowSorted(items)
-}
-
-func commandEach(command string, args []string) {
-	allOK := true
-	for _, repo := range ReadIndex().Repos {
-		ok := repo.InteractiveExec(command, args...)
-		if !ok {
-			allOK = false
-		}
+		execApplet(args[0], args[1:], false)
+		return
 	}
 
-	if !allOK {
-		os.Exit(1)
+	switch applet {
+	case "rtree":
+		rtree.Exec(args)
 	}
 }

@@ -16,13 +16,15 @@
 *
 *******************************************************************************/
 
-package main
+package rtree
 
 import (
 	"bytes"
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/majewsky/gofu/pkg/util"
 )
 
 //remoteAlias describes an alias that can be used in a Git remote URL (as
@@ -38,7 +40,7 @@ func init() {
 	cmd := exec.Command("git", "config", "--global", "-l")
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
-	FatalIfError(cmd.Run())
+	util.FatalIfError(cmd.Run())
 
 	rx := regexp.MustCompile(`^url\.([^=]+)\.insteadof=(.+)$`)
 	for _, line := range strings.Split(string(buf.Bytes()), "\n") {
