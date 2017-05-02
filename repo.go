@@ -178,3 +178,19 @@ func (r Repo) Checkout() error {
 
 	return nil
 }
+
+//InteractiveExec implements the meat of the `rtree exec` command. It returns
+//true iff the command exited successfully.
+func (r Repo) InteractiveExec(command string, args ...string) (ok bool) {
+	fmt.Fprintf(os.Stdout, "\x1B[1;36m>> \x1B[0;36m%s\x1B[0m\n", r.AbsolutePath())
+	cmd := exec.Command(command, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = r.AbsolutePath()
+	err := cmd.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\x1B[1;31m!! \x1B[0;31m%s\x1B[0m\n", err.Error())
+		return false
+	}
+	return true
+}

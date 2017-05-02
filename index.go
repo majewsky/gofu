@@ -24,6 +24,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -83,8 +85,16 @@ func ReadIndex() *Index {
 	if !valid {
 		FatalIfError(errors.New("index file is corrupted; see errors above"))
 	}
+
+	sort.Sort(reposByAbsPath(index.Repos))
 	return &index
 }
+
+type reposByAbsPath []*Repo
+
+func (r reposByAbsPath) Len() int           { return len(r) }
+func (r reposByAbsPath) Less(i, j int) bool { return r[i].AbsolutePath() < r[j].AbsolutePath() }
+func (r reposByAbsPath) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
 //Write writes the index file to disk.
 func (i *Index) Write() {
@@ -93,4 +103,83 @@ func (i *Index) Write() {
 	path := indexPath()
 	FatalIfError(os.MkdirAll(filepath.Dir(path), 0755))
 	FatalIfError(ioutil.WriteFile(path, buf, 0644))
+}
+
+//InteractiveRebuild implements the `rtree index` subcommand.
+func (i *Index) InteractiveRebuild() error {
+	//check if existing index entries are still checked out
+	existingRepos := make(map[string]*Repo)
+	var newRepos []*Repo
+	for _, repo := range i.Repos {
+		gitDirPath := filepath.Join(repo.AbsolutePath(), ".git")
+		fi, err := os.Stat(gitDirPath)
+		if err == nil {
+			if fi.IsDir() {
+				//everything okay with this repo
+				existingRepos[repo.CheckoutPath] = repo
+				newRepos = append(newRepos, repo)
+				continue
+			}
+			return fmt.Errorf("%s is not a directory: I'm seriously confused", gitDirPath)
+		}
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+
+		//repo has been deleted - ask what to do
+		fmt.Printf("repository %s has been deleted\n", filepath.Join(RootPath, repo.CheckoutPath))
+
+		var remoteURLs []string
+		for _, remote := range repo.Remotes {
+			if remote.Name == "origin" {
+				remoteURLs = []string{remote.URL}
+				break
+			}
+			remoteURLs = append(remoteURLs, remote.URL)
+		}
+
+		var choice string
+		if len(remoteURLs) == 0 {
+			choice = Prompt(
+				"no remote to restore from; (d)elete from index or (s)kip?",
+				[]string{"d", "s"},
+			)
+		} else {
+			choice = Prompt(
+				fmt.Sprintf("(r)estore from %s, (d)elete from index, or (s)kip?", strings.Join(remoteURLs, " and ")),
+				[]string{"r", "d", "s"},
+			)
+		}
+
+		switch choice {
+		case "r":
+			err := repo.Checkout()
+			if err != nil {
+				return err
+			}
+			newRepos = append(newRepos, repo)
+		case "d":
+			continue
+		case "s":
+			newRepos = append(newRepos, repo)
+		}
+	}
+
+	//index new repos
+	err := ForeachPhysicalRepo(func(newRepo Repo) error {
+		repo, exists := existingRepos[newRepo.CheckoutPath]
+		if exists {
+			//update the existing index entry with the new remotes
+			repo.Remotes = newRepo.Remotes
+		} else {
+			newRepos = append(newRepos, &newRepo)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	i.Repos = newRepos
+	return nil
 }

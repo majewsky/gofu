@@ -21,10 +21,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"sort"
-	"strings"
 )
 
 func main() {
@@ -73,76 +69,9 @@ func usageAndExit() {
 }
 
 func commandIndex() {
-	oldIndex := ReadIndex()
-	var newIndex Index
-
-	//check if existing index entries are still checked out
-	existingRepos := make(map[string]*Repo)
-	for _, repo := range oldIndex.Repos {
-		gitDirPath := filepath.Join(repo.AbsolutePath(), ".git")
-		fi, err := os.Stat(gitDirPath)
-		if err == nil {
-			if fi.IsDir() {
-				//everything okay with this repo
-				existingRepos[repo.CheckoutPath] = repo
-				newIndex.Repos = append(newIndex.Repos, repo)
-				continue
-			}
-			FatalIfError(fmt.Errorf("%s is not a directory: I'm seriously confused", gitDirPath))
-		}
-		if !os.IsNotExist(err) {
-			FatalIfError(err)
-		}
-
-		//repo has been deleted - ask what to do
-		fmt.Printf("repository %s has been deleted\n", filepath.Join(RootPath, repo.CheckoutPath))
-
-		var remoteURLs []string
-		for _, remote := range repo.Remotes {
-			if remote.Name == "origin" {
-				remoteURLs = []string{remote.URL}
-				break
-			}
-			remoteURLs = append(remoteURLs, remote.URL)
-		}
-
-		var choice string
-		if len(remoteURLs) == 0 {
-			choice = Prompt(
-				"no remote to restore from; (d)elete from index or (s)kip?",
-				[]string{"d", "s"},
-			)
-		} else {
-			choice = Prompt(
-				fmt.Sprintf("(r)estore from %s, (d)elete from index, or (s)kip?", strings.Join(remoteURLs, " and ")),
-				[]string{"r", "d", "s"},
-			)
-		}
-
-		switch choice {
-		case "r":
-			FatalIfError(repo.Checkout())
-			newIndex.Repos = append(newIndex.Repos, repo)
-		case "d":
-			continue
-		case "s":
-			newIndex.Repos = append(newIndex.Repos, repo)
-		}
-	}
-
-	//index new repos
-	FatalIfError(ForeachPhysicalRepo(func(newRepo Repo) error {
-		repo, exists := existingRepos[newRepo.CheckoutPath]
-		if exists {
-			//update the existing index entry with the new remotes
-			repo.Remotes = newRepo.Remotes
-		} else {
-			newIndex.Repos = append(newIndex.Repos, &newRepo)
-		}
-		return nil
-	}))
-
-	newIndex.Write()
+	index := ReadIndex()
+	FatalIfError(index.InteractiveRebuild())
+	index.Write()
 }
 
 func commandRepos() {
@@ -166,29 +95,15 @@ func commandRemotes() {
 }
 
 func commandEach(command string, args []string) {
-	index := ReadIndex()
-
-	var paths []string
-	for _, repo := range index.Repos {
-		paths = append(paths, repo.AbsolutePath())
-	}
-	sort.Strings(paths)
-
-	hadErrors := false
-	for _, path := range paths {
-		fmt.Fprintf(os.Stdout, "\x1B[1;36m>> \x1B[0;36m%s\x1B[0m\n", path)
-		cmd := exec.Command(command, args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Dir = path
-		err := cmd.Run()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "\x1B[1;31m!! \x1B[0;31m%s\x1B[0m\n", err.Error())
-			hadErrors = true
+	allOK := true
+	for _, repo := range ReadIndex().Repos {
+		ok := repo.InteractiveExec(command, args...)
+		if !ok {
+			allOK = false
 		}
 	}
 
-	if hadErrors {
+	if !allOK {
 		os.Exit(1)
 	}
 }
