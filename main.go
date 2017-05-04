@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/majewsky/gofu/pkg/cli"
 	"github.com/majewsky/gofu/pkg/rtree"
 )
 
@@ -44,5 +45,12 @@ func execApplet(applet string, args []string, allowGofu bool) {
 	switch applet {
 	case "rtree":
 		rtree.Exec(args)
+	case "test":
+		choice, _ := cli.Query("Which is the best editor?",
+			cli.Choice{Shortcut: 'v', Text: "vim"},
+			cli.Choice{Shortcut: 'e', Text: "emacs"},
+			cli.Choice{Text: "atom"},
+		)
+		fmt.Printf("You selected %s. Good choice!\n", choice.Text)
 	}
 }
