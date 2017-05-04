@@ -29,6 +29,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/majewsky/gofu/pkg/cli"
 	"github.com/majewsky/gofu/pkg/util"
 
 	yaml "gopkg.in/yaml.v2"
@@ -131,8 +132,6 @@ func (i *Index) InteractiveRebuild() error {
 		}
 
 		//repo has been deleted - ask what to do
-		fmt.Printf("repository %s has been deleted\n", filepath.Join(RootPath, repo.CheckoutPath))
-
 		var remoteURLs []string
 		for _, remote := range repo.Remotes {
 			if remote.Name == "origin" {
@@ -142,29 +141,32 @@ func (i *Index) InteractiveRebuild() error {
 			remoteURLs = append(remoteURLs, remote.URL)
 		}
 
-		var choice string
+		var choice cli.Choice
 		if len(remoteURLs) == 0 {
-			choice = util.Prompt(os.Stdout,
-				"no remote to restore from; (d)elete from index or (s)kip?",
-				[]string{"d", "s"},
+			choice, _ = cli.Query(
+				fmt.Sprintf("repository %s has been deleted; no remote to restore from", filepath.Join(RootPath, repo.CheckoutPath)),
+				cli.Choice{Shortcut: 'd', Text: "delete from index"},
+				cli.Choice{Shortcut: 's', Text: "skip"},
 			)
 		} else {
-			choice = util.Prompt(os.Stdout,
-				fmt.Sprintf("(r)estore from %s, (d)elete from index, or (s)kip?", strings.Join(remoteURLs, " and ")),
-				[]string{"r", "d", "s"},
+			choice, _ = cli.Query(
+				fmt.Sprintf("repository %s has been deleted", filepath.Join(RootPath, repo.CheckoutPath)),
+				cli.Choice{Shortcut: 'r', Text: "(r)estore from " + strings.Join(remoteURLs, " and ")},
+				cli.Choice{Shortcut: 'd', Text: "delete from index"},
+				cli.Choice{Shortcut: 's', Text: "skip"},
 			)
 		}
 
-		switch choice {
-		case "r":
+		switch choice.Shortcut {
+		case 'r':
 			err := repo.Checkout()
 			if err != nil {
 				return err
 			}
 			newRepos = append(newRepos, repo)
-		case "d":
+		case 'd':
 			continue
-		case "s":
+		case 's':
 			newRepos = append(newRepos, repo)
 		}
 	}
@@ -194,8 +196,12 @@ var tenLetters = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
 //disk or (if allowClone is set) clones it and adds it to the index. This
 //is the meat of `rtree get`, and is also used by `rtree drop`.
 func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
-	//NOTE: This function prints *everything* on stderr, because stdout is
-	//reserved for the result path during `rtree get`.
+	//make sure that stdout is not used for prompts
+	originalStdout := os.Stdout
+	os.Stdout = os.Stderr
+	defer func() {
+		os.Stdout = originalStdout
+	}()
 
 	expandedRemoteURL := ExpandRemoteURL(remoteURL)
 	basename := path.Base(expandedRemoteURL)
@@ -245,15 +251,17 @@ func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
 	if len(candidates) > 10 {
 		candidates = candidates[:10]
 	}
-	prompt := "Found possible fork candidates.\n"
+	choices := make([]cli.Choice, len(candidates)+1)
 	for idx, repo := range candidates {
-		prompt += fmt.Sprintf("\t(%s) add as remote to %s\n", tenLetters[idx], repo.AbsolutePath())
+		choices[idx] = cli.Choice{Text: "add as remote to " + repo.AbsolutePath()}
 	}
-	prompt += fmt.Sprintf("\t(x) clone to %s\nSelect action:", newRepo.AbsolutePath())
-	choices := append([]string{"x"}, tenLetters[:len(candidates)]...)
-	choice := util.Prompt(os.Stderr, prompt, choices)
+	choices[len(candidates)] = cli.Choice{
+		Shortcut: 'n',
+		Text:     "clone to " + newRepo.AbsolutePath(),
+	}
+	choice, choiceIdx := cli.Query("Found possible fork candidates. What to do?", choices...)
 
-	if choice == "x" {
+	if choice.Shortcut == 'n' {
 		util.FatalIfError(newRepo.Checkout())
 		i.Repos = append(i.Repos, &newRepo)
 		i.Write()
@@ -261,29 +269,24 @@ func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
 	}
 
 	//find the repo selected by the user
-	var target *Repo
-	for idx, str := range choices {
-		if choice == str {
-			target = candidates[idx-1]
-		}
-	}
+	target := candidates[choiceIdx]
 
 	//report the existing remotes, and ask for the name of the new remote
-	fmt.Fprintln(os.Stderr, "Existing remotes:")
+	fmt.Println("Existing remotes:")
 	for _, remote := range target.Remotes {
-		fmt.Fprintf(os.Stderr, "\t(%s) %s\n", remote.Name, remote.URL)
+		fmt.Printf("\t(%s) %s\n", remote.Name, remote.URL)
 	}
-	fmt.Fprintf(os.Stderr, "Enter remote name for %s: ", remoteURL)
+	fmt.Printf("Enter remote name for %s: ", remoteURL)
 	remoteName := util.ReadLine()
 
 	cmd := exec.Command("git", "remote", "add", remoteName, remoteURL)
-	cmd.Stdout = os.Stderr
+	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Dir = target.AbsolutePath()
 	util.FatalIfError(cmd.Run())
 
 	cmd = exec.Command("git", "remote", "update", remoteName)
-	cmd.Stdout = os.Stderr
+	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Dir = target.AbsolutePath()
 	util.FatalIfError(cmd.Run())

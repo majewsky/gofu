@@ -49,8 +49,7 @@ func Query(prompt string, choices ...Choice) (Choice, int) {
 		return Choice{}, -1
 	}
 
-	//disable line wrap during doQuery(); unexpected wrapping would confuse our
-	//cursor-moving code
+	//disable line wrap; unexpected wrapping would confuse our cursor-moving code
 	os.Stdout.Write([]byte("\x1B[?7l"))
 	defer os.Stdout.Write([]byte("\x1B[?7h"))
 
