@@ -108,6 +108,17 @@ func (i *Index) Write() {
 	path := indexPath()
 	util.FatalIfError(os.MkdirAll(filepath.Dir(path), 0755))
 	util.FatalIfError(ioutil.WriteFile(path, buf, 0644))
+
+	//perform sanity check (TODO: do this instead when rebuilding the index)
+	seen := make(map[string]bool)
+	warned := make(map[string]bool)
+	for _, repo := range i.Repos {
+		if seen[repo.CheckoutPath] && !warned[repo.CheckoutPath] {
+			fmt.Fprintf(os.Stderr, "warning: repo %s appears multiple times in the index file!\n", repo.AbsolutePath())
+			warned[repo.CheckoutPath] = true
+		}
+		seen[repo.CheckoutPath] = true
+	}
 }
 
 //InteractiveRebuild implements the `rtree index` subcommand.
@@ -235,6 +246,7 @@ func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
 	}
 
 	if !allowClone {
+		util.ShowError(errors.New("no such remote in index (you can validate the index with `rtree index`)"))
 		return nil
 	}
 
@@ -346,4 +358,26 @@ func (i *Index) InteractiveImportRepo(dirPath string) {
 	//do the move
 	util.FatalIfError(repo.Move(checkoutPath, true))
 	i.Repos = append(i.Repos, &repo)
+}
+
+//InteractiveDropRepo deletes the given repo from the rtree and removes it from
+//the index.
+func (i *Index) InteractiveDropRepo(repo *Repo) {
+	ok := repo.InteractiveExec("git", "status")
+	if !ok {
+		return
+	}
+	if !cli.Confirm(">> Drop this repo?") {
+		return
+	}
+
+	util.FatalIfError(os.RemoveAll(repo.AbsolutePath()))
+
+	reposNew := make([]*Repo, 0, len(i.Repos)-1)
+	for _, r := range i.Repos {
+		if r.CheckoutPath != repo.CheckoutPath {
+			reposNew = append(reposNew, r)
+		}
+	}
+	i.Repos = reposNew
 }

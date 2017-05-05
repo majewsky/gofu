@@ -38,7 +38,10 @@ func Exec(args []string) {
 		}
 		commandGet(args[1])
 	case "drop":
-		panic("unimplemented")
+		if len(args) != 2 {
+			usageAndExit()
+		}
+		commandDrop(args[1])
 	case "index":
 		if len(args) != 1 {
 			usageAndExit()
@@ -85,6 +88,15 @@ func commandGet(url string) {
 	repo := index.InteractiveFindRepo(url, true)
 	if repo != nil {
 		fmt.Println(repo.AbsolutePath())
+	}
+}
+
+func commandDrop(url string) {
+	index := ReadIndex()
+	repo := index.InteractiveFindRepo(url, false)
+	if repo != nil {
+		index.InteractiveDropRepo(repo)
+		index.Write()
 	}
 }
 

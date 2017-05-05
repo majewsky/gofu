@@ -28,6 +28,26 @@ import (
 	terminal "golang.org/x/crypto/ssh/terminal"
 )
 
+//Confirm displays a yes/no question and returns whether the user answered "yes".
+func Confirm(question string) bool {
+	os.Stdout.Write([]byte(strings.TrimSpace(question) + " [y/n] "))
+
+	buf := buffer{Input: os.Stdin}
+	for {
+		switch string(buf.getNextInput()) {
+		case "y", "Y":
+			os.Stdout.Write([]byte("-> yes\n"))
+			return true
+		case "n", "N":
+			os.Stdout.Write([]byte("-> no\n"))
+			return false
+		case "\x03": // Ctrl-C
+			fmt.Fprintln(os.Stderr, "\nInterrupted!")
+			os.Exit(255)
+		}
+	}
+}
+
 //Choice is a thing that the user can choose during Query().
 type Choice struct {
 	//If given, the choice can be selected by pressing the key that
@@ -89,8 +109,6 @@ OUTER:
 		case "\x03": // Ctrl-C
 			fmt.Fprintln(os.Stderr, "Interrupted!")
 			os.Exit(255)
-		default:
-			fmt.Printf("%#v\n", string(input))
 		}
 
 		//prepare to re-render choices
