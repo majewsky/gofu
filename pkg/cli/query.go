@@ -87,7 +87,7 @@ OUTER:
 				selected = len(choices) - 1
 			}
 		case "\x03": // Ctrl-C
-			fmt.Fprintf(os.Stderr, "Interrupted!")
+			fmt.Fprintln(os.Stderr, "Interrupted!")
 			os.Exit(255)
 		default:
 			fmt.Printf("%#v\n", string(input))

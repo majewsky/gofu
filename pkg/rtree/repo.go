@@ -226,3 +226,39 @@ func (r Repo) InteractiveExec(command string, args ...string) (ok bool) {
 	}
 	return true
 }
+
+//Move sets the CheckoutPath to the given value and moves the existing repo
+//from the old to the new checkoutPath. If makeSymlink is given, a symlink will
+//be created from the old to the new location.
+func (r *Repo) Move(checkoutPath string, makeSymlink bool) error {
+	sourcePath := filepath.Join(RootPath, r.CheckoutPath)
+	targetPath := filepath.Join(RootPath, checkoutPath)
+
+	//ensure that target does not exist
+	_, err := os.Lstat(targetPath)
+	if err == nil {
+		return fmt.Errorf("cannot move %s to %s: target exists in filesystem", sourcePath, targetPath)
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+
+	//prepare directory to move repo into
+	err = os.MkdirAll(filepath.Dir(targetPath), 0755)
+	if err != nil {
+		return err
+	}
+
+	//move directory
+	err = os.Rename(sourcePath, targetPath)
+	if err != nil {
+		return err
+	}
+	r.CheckoutPath = checkoutPath
+
+	//if requested, make compatibility symlink
+	if makeSymlink {
+		return os.Symlink(targetPath, sourcePath)
+	}
+	return nil
+}

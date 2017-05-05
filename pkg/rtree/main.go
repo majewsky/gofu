@@ -55,7 +55,10 @@ func Exec(args []string) {
 		}
 		commandRemotes()
 	case "import":
-		panic("unimplemented")
+		if len(args) != 2 {
+			usageAndExit()
+		}
+		commandImport(args[1])
 	case "each":
 		if len(args) < 2 {
 			usageAndExit()
@@ -123,4 +126,10 @@ func commandEach(command string, args []string) {
 	if !allOK {
 		os.Exit(1)
 	}
+}
+
+func commandImport(dirPath string) {
+	index := ReadIndex()
+	index.InteractiveImportRepo(dirPath)
+	index.Write()
 }

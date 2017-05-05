@@ -298,3 +298,52 @@ func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
 	i.Write()
 	return target
 }
+
+//InteractiveImportRepo moves the given repo into the rtree and adds it to the index.
+func (i *Index) InteractiveImportRepo(dirPath string) {
+	//need to make dirPath absolute first
+	dirPath, err := filepath.Abs(dirPath)
+	util.FatalIfError(err)
+	repo, err := NewRepoFromAbsolutePath(dirPath)
+	util.FatalIfError(err)
+
+	//repo must be outside $GOPATH/src
+	if !strings.HasPrefix(repo.CheckoutPath, "../") {
+		util.FatalIfError(fmt.Errorf("%s is already inside GOPATH", dirPath))
+	}
+
+	//select the remote which determines the checkout path
+	choices := make([]cli.Choice, len(repo.Remotes))
+	var checkoutPath string
+	for idx, remote := range repo.Remotes {
+		thisPath := CheckoutPathForRemoteURL(ExpandRemoteURL(remote.URL))
+		if remote.Name == "origin" {
+			//prefer "origin" over everything else
+			checkoutPath = thisPath
+			break
+		}
+		choices[idx] = cli.Choice{Text: thisPath}
+	}
+
+	//cannot decide myself -> let the user select
+	if checkoutPath == "" {
+		if len(choices) == 0 {
+			util.FatalIfError(errors.New("repo has no remotes"))
+		}
+
+		question := fmt.Sprintf("Repo has multiple remotes. Where to put below %s?", RootPath)
+		choice, _ := cli.Query(question, choices...)
+		checkoutPath = choice.Text
+	}
+
+	//double-check that there is no such repo in the rtree yet
+	for _, other := range i.Repos {
+		if other.CheckoutPath == checkoutPath {
+			util.FatalIfError(errors.New("will not overwrite existing checkout at " + other.AbsolutePath()))
+		}
+	}
+
+	//do the move
+	util.FatalIfError(repo.Move(checkoutPath, true))
+	i.Repos = append(i.Repos, &repo)
+}
