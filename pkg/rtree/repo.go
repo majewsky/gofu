@@ -27,8 +27,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/majewsky/gofu/pkg/util"
 )
 
 //RootPath is the directory below which all repositories are located. Its value
@@ -38,7 +36,7 @@ var RootPath string
 func init() {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
-		util.FatalIfError(errors.New("$GOPATH is not set (rtree needs the GOPATH variable to know where to look for and place repos)"))
+		panic(errors.New("$GOPATH is not set (rtree needs the GOPATH variable to know where to look for and place repos)"))
 	}
 	RootPath = filepath.Join(gopath, "src")
 }
@@ -97,16 +95,17 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 
 //NewRepoFromRemoteURL initializes a Repo instance for checking out a remote
 //for the first time. The checkout does not happen until Checkout() is called.
-func NewRepoFromRemoteURL(remoteURL string) Repo {
+func NewRepoFromRemoteURL(remoteURL string) (Repo, error) {
+	checkoutPath, err := CheckoutPathForRemoteURL(ExpandRemoteURL(remoteURL))
 	return Repo{
-		CheckoutPath: CheckoutPathForRemoteURL(ExpandRemoteURL(remoteURL)),
+		CheckoutPath: checkoutPath,
 		Remotes: []Remote{
 			{
 				Name: "origin",
 				URL:  remoteURL,
 			},
 		},
-	}
+	}, err
 }
 
 var remoteConfigRx = regexp.MustCompile(`remote\.([^=]+)\.url=(.+)`)
@@ -139,22 +138,6 @@ func ForeachPhysicalRepo(action func(repo Repo) error) error {
 		//do not traverse further down into submodules etc.
 		return filepath.SkipDir
 	})
-}
-
-//ExistsOnDisk returns true if the top directory of this repo exists.
-func (r Repo) ExistsOnDisk() bool {
-	path := r.AbsolutePath()
-	fi, err := os.Stat(path)
-	if err == nil {
-		if !fi.IsDir() {
-			util.FatalIfError(fmt.Errorf("expected %s to be a directory, but it is not", path))
-		}
-		return true
-	}
-	if !os.IsNotExist(err) {
-		util.FatalIfError(err)
-	}
-	return false
 }
 
 //Checkout creates the repo in the given path with the given remotes. The

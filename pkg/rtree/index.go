@@ -43,56 +43,56 @@ type Index struct {
 func indexPath() string {
 	homeDir := os.Getenv("HOME")
 	if homeDir == "" {
-		util.FatalIfError(errors.New("$HOME is not set (rtree needs the HOME variable to locate its index file)"))
+		panic(errors.New("$HOME is not set (rtree needs the HOME variable to locate its index file)"))
 	}
 	return filepath.Join(homeDir, ".rtree/index.yaml")
 }
 
 //ReadIndex reads the index file.
-func ReadIndex() *Index {
+func ReadIndex() (*Index, []error) {
 	//read contents of index file
 	path := indexPath()
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Index{Repos: nil}
+			return &Index{Repos: nil}, nil
 		}
-		util.FatalIfError(err)
+		return nil, []error{err}
 	}
 
 	//deserialize YAML
 	var index Index
-	util.FatalIfError(yaml.Unmarshal(buf, &index))
+	err = yaml.Unmarshal(buf, &index)
+	if err != nil {
+		return nil, []error{err}
+	}
 
 	//validate YAML
-	valid := true
+	var errs []error
+	missing := func(key string, args ...interface{}) {
+		errs = append(errs, fmt.Errorf("read %s: missing \"%s\"",
+			path, fmt.Sprintf(key, args...),
+		))
+	}
 	for idx, repo := range index.Repos {
 		if repo.CheckoutPath == "" {
-			util.ShowError(fmt.Errorf("missing \"repos[%d].path\"", idx))
-			valid = false
+			missing("repos[%d].path", idx)
 		}
 		if len(repo.Remotes) == 0 {
-			util.ShowError(fmt.Errorf("missing \"repos[%d].remotes\"", idx))
-			valid = false
+			missing("repos[%d].remotes", idx)
 		}
 		for idx2, remote := range repo.Remotes {
 			switch {
 			case remote.Name == "":
-				util.ShowError(fmt.Errorf("missing \"repos[%d].remotes[%d].name\"", idx, idx2))
-				valid = false
+				missing("repos[%d].remotes[%d].name", idx, idx2)
 			case remote.URL == "":
-				util.ShowError(fmt.Errorf("missing \"repos[%d].remotes[%d].url\"", idx, idx2))
-				valid = false
+				missing("repos[%d].remotes[%d].url", idx, idx2)
 			}
 		}
 	}
 
-	if !valid {
-		util.FatalIfError(errors.New("index file is corrupted; see errors above"))
-	}
-
 	sort.Sort(reposByAbsPath(index.Repos))
-	return &index
+	return &index, errs
 }
 
 type reposByAbsPath []*Repo
@@ -102,12 +102,21 @@ func (r reposByAbsPath) Less(i, j int) bool { return r[i].AbsolutePath() < r[j].
 func (r reposByAbsPath) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
 //Write writes the index file to disk.
-func (i *Index) Write() {
+func (i *Index) Write() error {
 	buf, err := yaml.Marshal(i)
-	util.FatalIfError(err)
+	if err != nil {
+		return err
+	}
+
 	path := indexPath()
-	util.FatalIfError(os.MkdirAll(filepath.Dir(path), 0755))
-	util.FatalIfError(ioutil.WriteFile(path, buf, 0644))
+	err = os.MkdirAll(filepath.Dir(path), 0755)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(path, buf, 0644)
+	if err != nil {
+		return err
+	}
 
 	//perform sanity check (TODO: do this instead when rebuilding the index)
 	seen := make(map[string]bool)
@@ -119,26 +128,26 @@ func (i *Index) Write() {
 		}
 		seen[repo.CheckoutPath] = true
 	}
+
+	return nil
 }
 
 //InteractiveRebuild implements the `rtree index` subcommand.
 func (i *Index) InteractiveRebuild() error {
 	//check if existing index entries are still checked out
-	existingRepos := make(map[string]*Repo)
 	var newRepos []*Repo
 	for _, repo := range i.Repos {
 		gitDirPath := filepath.Join(repo.AbsolutePath(), ".git")
 		fi, err := os.Stat(gitDirPath)
-		if err == nil {
+		switch {
+		case err == nil:
 			if fi.IsDir() {
 				//everything okay with this repo
-				existingRepos[repo.CheckoutPath] = repo
 				newRepos = append(newRepos, repo)
 				continue
 			}
-			return fmt.Errorf("%s is not a directory: I'm seriously confused", gitDirPath)
-		}
-		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("expected repository at %s, but is not a directory", gitDirPath)
+		case !os.IsNotExist(err):
 			return err
 		}
 
@@ -182,6 +191,11 @@ func (i *Index) InteractiveRebuild() error {
 		}
 	}
 
+	existingRepos := make(map[string]*Repo)
+	for _, repo := range newRepos {
+		existingRepos[repo.CheckoutPath] = repo
+	}
+
 	//index new repos
 	err := ForeachPhysicalRepo(func(newRepo Repo) error {
 		repo, exists := existingRepos[newRepo.CheckoutPath]
@@ -206,7 +220,7 @@ var tenLetters = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
 //InteractiveFindRepo locates the repo with the given remote if it exists on
 //disk or (if allowClone is set) clones it and adds it to the index. This
 //is the meat of `rtree get`, and is also used by `rtree drop`.
-func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
+func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) (*Repo, error) {
 	//make sure that stdout is not used for prompts
 	originalStdout := os.Stdout
 	os.Stdout = os.Stderr
@@ -225,7 +239,7 @@ func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
 		for _, remote := range repo.Remotes {
 			otherExpandedRemoteURL := ExpandRemoteURL(remote.URL)
 			if expandedRemoteURL == otherExpandedRemoteURL {
-				return repo
+				return repo, nil
 			}
 			if basename == path.Base(otherExpandedRemoteURL) {
 				isCandidate = true
@@ -237,25 +251,34 @@ func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
 	}
 
 	//double-check if the repo is already checked out, but we didn't notice it yet
-	newRepo := NewRepoFromRemoteURL(remoteURL)
-	if newRepo.ExistsOnDisk() {
-		util.FatalIfError(fmt.Errorf(
+	newRepo, err := NewRepoFromRemoteURL(remoteURL)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := os.Stat(newRepo.AbsolutePath())
+	switch {
+	case err == nil:
+		return nil, fmt.Errorf(
 			"%s already exists (if there is a repo there, try `rtree index`)",
 			newRepo.AbsolutePath(),
-		))
+		)
+	case !os.IsNotExist(err):
+		return nil, err
 	}
 
 	if !allowClone {
-		util.ShowError(errors.New("no such remote in index (you can validate the index with `rtree index`)"))
-		return nil
+		return nil, errors.New("no such remote in index (you can validate the index with `rtree index`)")
 	}
 
 	//if no fork candidates found, clone as new repo
 	if len(candidates) == 0 {
-		util.FatalIfError(newRepo.Checkout())
+		err := newRepo.Checkout()
+		if err != nil {
+			return nil, err
+		}
 		i.Repos = append(i.Repos, &newRepo)
 		i.Write()
-		return &newRepo
+		return &newRepo, nil
 	}
 
 	//if we found fork candidates, ask the user to match the repo with a fork
@@ -274,10 +297,13 @@ func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
 	choice, choiceIdx := cli.Query("Found possible fork candidates. What to do?", choices...)
 
 	if choice.Shortcut == 'n' {
-		util.FatalIfError(newRepo.Checkout())
+		err := newRepo.Checkout()
+		if err != nil {
+			return nil, err
+		}
 		i.Repos = append(i.Repos, &newRepo)
 		i.Write()
-		return &newRepo
+		return &newRepo, nil
 	}
 
 	//find the repo selected by the user
@@ -295,40 +321,53 @@ func (i *Index) InteractiveFindRepo(remoteURL string, allowClone bool) *Repo {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Dir = target.AbsolutePath()
-	util.FatalIfError(cmd.Run())
+	err = cmd.Run()
+	if err != nil {
+		return nil, err
+	}
 
 	cmd = exec.Command("git", "remote", "update", remoteName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Dir = target.AbsolutePath()
-	util.FatalIfError(cmd.Run())
+	err = cmd.Run()
+	if err != nil {
+		return nil, err
+	}
 
 	target.Remotes = append(target.Remotes, Remote{
 		Name: remoteName,
 		URL:  remoteURL,
 	})
 	i.Write()
-	return target
+	return target, nil
 }
 
 //InteractiveImportRepo moves the given repo into the rtree and adds it to the index.
-func (i *Index) InteractiveImportRepo(dirPath string) {
+func (i *Index) InteractiveImportRepo(dirPath string) error {
 	//need to make dirPath absolute first
 	dirPath, err := filepath.Abs(dirPath)
-	util.FatalIfError(err)
+	if err != nil {
+		return err
+	}
 	repo, err := NewRepoFromAbsolutePath(dirPath)
-	util.FatalIfError(err)
+	if err != nil {
+		return err
+	}
 
 	//repo must be outside $GOPATH/src
 	if !strings.HasPrefix(repo.CheckoutPath, "../") {
-		util.FatalIfError(fmt.Errorf("%s is already inside GOPATH", dirPath))
+		return fmt.Errorf("%s is already inside GOPATH", dirPath)
 	}
 
 	//select the remote which determines the checkout path
 	choices := make([]cli.Choice, len(repo.Remotes))
 	var checkoutPath string
 	for idx, remote := range repo.Remotes {
-		thisPath := CheckoutPathForRemoteURL(ExpandRemoteURL(remote.URL))
+		thisPath, err := CheckoutPathForRemoteURL(ExpandRemoteURL(remote.URL))
+		if err != nil {
+			return err
+		}
 		if remote.Name == "origin" {
 			//prefer "origin" over everything else
 			checkoutPath = thisPath
@@ -340,7 +379,7 @@ func (i *Index) InteractiveImportRepo(dirPath string) {
 	//cannot decide myself -> let the user select
 	if checkoutPath == "" {
 		if len(choices) == 0 {
-			util.FatalIfError(errors.New("repo has no remotes"))
+			return errors.New("repo has no remotes")
 		}
 
 		question := fmt.Sprintf("Repo has multiple remotes. Where to put below %s?", RootPath)
@@ -351,27 +390,34 @@ func (i *Index) InteractiveImportRepo(dirPath string) {
 	//double-check that there is no such repo in the rtree yet
 	for _, other := range i.Repos {
 		if other.CheckoutPath == checkoutPath {
-			util.FatalIfError(errors.New("will not overwrite existing checkout at " + other.AbsolutePath()))
+			return errors.New("will not overwrite existing checkout at " + other.AbsolutePath())
 		}
 	}
 
 	//do the move
-	util.FatalIfError(repo.Move(checkoutPath, true))
+	err = repo.Move(checkoutPath, true)
+	if err != nil {
+		return err
+	}
 	i.Repos = append(i.Repos, &repo)
+	return nil
 }
 
 //InteractiveDropRepo deletes the given repo from the rtree and removes it from
 //the index.
-func (i *Index) InteractiveDropRepo(repo *Repo) {
+func (i *Index) InteractiveDropRepo(repo *Repo) error {
 	ok := repo.InteractiveExec("git", "status")
 	if !ok {
-		return
+		return nil
 	}
 	if !cli.Confirm(">> Drop this repo?") {
-		return
+		return nil
 	}
 
-	util.FatalIfError(os.RemoveAll(repo.AbsolutePath()))
+	err := os.RemoveAll(repo.AbsolutePath())
+	if err != nil {
+		return err
+	}
 
 	reposNew := make([]*Repo, 0, len(i.Repos)-1)
 	for _, r := range i.Repos {
@@ -380,4 +426,5 @@ func (i *Index) InteractiveDropRepo(repo *Repo) {
 		}
 	}
 	i.Repos = reposNew
+	return nil
 }

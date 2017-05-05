@@ -25,8 +25,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/majewsky/gofu/pkg/util"
 )
 
 //remoteAlias describes an alias that can be used in a Git remote URL (as
@@ -42,7 +40,10 @@ func init() {
 	cmd := exec.Command("git", "config", "--global", "-l")
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
-	util.FatalIfError(cmd.Run())
+	err := cmd.Run()
+	if err != nil {
+		panic(err)
+	}
 
 	rx := regexp.MustCompile(`^url\.([^=]+)\.insteadof=(.+)$`)
 	for _, line := range strings.Split(string(buf.Bytes()), "\n") {
@@ -92,15 +93,16 @@ var scpSyntaxRx = regexp.MustCompile(`^(?:[^/@:]+@)?([^/:]+\.[^/:]+):(.+)$`)
 //  "https://example.org/foo/bar" -> "example.org/foo/bar"
 //  "git@example.org:foo/bar"     -> "example.org/foo/bar"
 //
-func CheckoutPathForRemoteURL(remoteURL string) string {
+func CheckoutPathForRemoteURL(remoteURL string) (string, error) {
 	match := scpSyntaxRx.FindStringSubmatch(remoteURL)
 	if match != nil {
 		//match[1] is the hostname, match[2] is the path to the repo
-		return filepath.Join(match[1], match[2])
+		return filepath.Join(match[1], match[2]), nil
 	}
 
 	u, err := url.Parse(remoteURL)
-	util.FatalIfError(err)
-
-	return filepath.Join(u.Hostname(), u.Path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(u.Hostname(), u.Path), nil
 }

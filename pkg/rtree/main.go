@@ -31,47 +31,62 @@ func Exec(args []string) {
 	if len(args) == 0 {
 		usageAndExit()
 	}
+
+	index, errs := ReadIndex()
+	if len(errs) > 0 {
+		for _, err := range errs {
+			util.ShowError(err)
+		}
+		os.Exit(255)
+	}
+
+	var err error
 	switch args[0] {
 	case "get":
 		if len(args) != 2 {
 			usageAndExit()
 		}
-		commandGet(args[1])
+		err = commandGet(index, args[1])
 	case "drop":
 		if len(args) != 2 {
 			usageAndExit()
 		}
-		commandDrop(args[1])
+		err = commandDrop(index, args[1])
 	case "index":
 		if len(args) != 1 {
 			usageAndExit()
 		}
-		commandIndex()
+		err = commandIndex(index)
 	case "repos":
 		if len(args) != 1 {
 			usageAndExit()
 		}
-		commandRepos()
+		commandRepos(index)
 	case "remotes":
 		if len(args) != 1 {
 			usageAndExit()
 		}
-		commandRemotes()
+		commandRemotes(index)
 	case "import":
 		if len(args) != 2 {
 			usageAndExit()
 		}
-		commandImport(args[1])
+		err = commandImport(index, args[1])
 	case "each":
 		if len(args) < 2 {
 			usageAndExit()
 		}
-		commandEach(args[1], args[2:])
+		commandEach(index, args[1], args[2:])
 	default:
 		usageAndExit()
 	}
 
-	os.Exit(0)
+	if err == nil {
+		os.Exit(0)
+	} else {
+		util.ShowError(err)
+		os.Exit(1)
+	}
 }
 
 func usageAndExit() {
@@ -83,31 +98,36 @@ func usageAndExit() {
 	os.Exit(1)
 }
 
-func commandGet(url string) {
-	index := ReadIndex()
-	repo := index.InteractiveFindRepo(url, true)
-	if repo != nil {
-		fmt.Println(repo.AbsolutePath())
+func commandGet(index *Index, url string) error {
+	repo, err := index.InteractiveFindRepo(url, true)
+	if err != nil {
+		return err
 	}
+	fmt.Println(repo.AbsolutePath())
+	return nil
 }
 
-func commandDrop(url string) {
-	index := ReadIndex()
-	repo := index.InteractiveFindRepo(url, false)
-	if repo != nil {
-		index.InteractiveDropRepo(repo)
-		index.Write()
+func commandDrop(index *Index, url string) error {
+	repo, err := index.InteractiveFindRepo(url, true)
+	if err != nil {
+		return err
 	}
+	err = index.InteractiveDropRepo(repo)
+	if err != nil {
+		return err
+	}
+	return index.Write()
 }
 
-func commandIndex() {
-	index := ReadIndex()
-	util.FatalIfError(index.InteractiveRebuild())
-	index.Write()
+func commandIndex(index *Index) error {
+	err := index.InteractiveRebuild()
+	if err != nil {
+		return err
+	}
+	return index.Write()
 }
 
-func commandRepos() {
-	index := ReadIndex()
+func commandRepos(index *Index) {
 	var items []string
 	for _, repo := range index.Repos {
 		items = append(items, repo.CheckoutPath)
@@ -115,8 +135,7 @@ func commandRepos() {
 	util.ShowSorted(items)
 }
 
-func commandRemotes() {
-	index := ReadIndex()
+func commandRemotes(index *Index) {
 	var items []string
 	for _, repo := range index.Repos {
 		for _, remote := range repo.Remotes {
@@ -126,9 +145,9 @@ func commandRemotes() {
 	util.ShowSorted(items)
 }
 
-func commandEach(command string, args []string) {
+func commandEach(index *Index, command string, args []string) {
 	allOK := true
-	for _, repo := range ReadIndex().Repos {
+	for _, repo := range index.Repos {
 		ok := repo.InteractiveExec(command, args...)
 		if !ok {
 			allOK = false
@@ -140,8 +159,10 @@ func commandEach(command string, args []string) {
 	}
 }
 
-func commandImport(dirPath string) {
-	index := ReadIndex()
-	index.InteractiveImportRepo(dirPath)
-	index.Write()
+func commandImport(index *Index, dirPath string) error {
+	err := index.InteractiveImportRepo(dirPath)
+	if err != nil {
+		return err
+	}
+	return index.Write()
 }
