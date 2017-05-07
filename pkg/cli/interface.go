@@ -21,6 +21,7 @@ package cli
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -128,26 +129,17 @@ func (i *Interface) ShowResultsSorted(strs []string) {
 
 //ShowProgress displays a progress message on stderr.
 func (i *Interface) ShowProgress(str string) {
-	i.stderr.Write(StyledText{
-		Styled(">> ", AnsiNormal, AnsiBold, AnsiCyan),
-		Styled(strings.TrimSpace(str)+"\n", AnsiCyan),
-	}.DisplayString(true))
+	fmt.Fprintf(i.stderr, "\x1B[0;1;36m>>\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
 }
 
 //ShowWarning displays a warning message on stderr.
 func (i *Interface) ShowWarning(str string) {
-	i.stderr.Write(StyledText{
-		Styled("!! ", AnsiNormal, AnsiBold, AnsiYellow),
-		Styled(strings.TrimSpace(str)+"\n", AnsiYellow),
-	}.DisplayString(true))
+	fmt.Fprintf(i.stderr, "\x1B[0;1;33m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
 }
 
 //ShowError displays an error message on stderr.
-func (i *Interface) ShowError(err string) {
-	i.stderr.Write(StyledText{
-		Styled("!! ", AnsiNormal, AnsiBold, AnsiRed),
-		Styled(strings.TrimSpace(err)+"\n", AnsiRed),
-	}.DisplayString(true))
+func (i *Interface) ShowError(str string) {
+	fmt.Fprintf(i.stderr, "\x1B[0;1;31m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
 }
 
 //ShowUsage displays a usage synopsis on stderr.

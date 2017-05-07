@@ -170,7 +170,7 @@ func displayChoices(out io.Writer, choices []Choice, selectedIndex int) {
 		}
 
 		if idx == selectedIndex {
-			out.Write(Styled(text, AnsiInverse).DisplayString(true))
+			fmt.Fprintf(out, "\x1B[0;7m%s\x1B[0m", text)
 		} else {
 			out.Write([]byte(text))
 		}
