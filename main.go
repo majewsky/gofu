@@ -23,34 +23,28 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/majewsky/gofu/pkg/cli"
 	"github.com/majewsky/gofu/pkg/rtree"
 )
 
 func main() {
-	execApplet(filepath.Base(os.Args[0]), os.Args[1:], true)
+	os.Exit(execApplet(filepath.Base(os.Args[0]), os.Args[1:], true))
 }
 
-func execApplet(applet string, args []string, allowGofu bool) {
+func execApplet(applet string, args []string, allowGofu bool) int {
 	//allow explicit specification of applet as "./build/gofu <applet> <args>"
 	if allowGofu && applet == "gofu" {
 		if len(args) == 0 {
 			fmt.Fprintln(os.Stderr, "Usage: gofu <applet> [args...]")
-			os.Exit(1)
+			return 1
 		}
-		execApplet(args[0], args[1:], false)
-		return
+		return execApplet(args[0], args[1:], false)
 	}
 
 	switch applet {
 	case "rtree":
-		rtree.Exec(args)
-	case "test":
-		choice, _ := cli.Query("Which is the best editor?",
-			cli.Choice{Shortcut: 'v', Text: "vim"},
-			cli.Choice{Shortcut: 'e', Text: "emacs"},
-			cli.Choice{Text: "atom"},
-		)
-		fmt.Printf("You selected %s. Good choice!\n", choice.Text)
+		return rtree.Exec(args)
+	default:
+		fmt.Fprintln(os.Stderr, "ERROR: unknown applet: "+applet)
+		return 255
 	}
 }

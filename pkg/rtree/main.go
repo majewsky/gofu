@@ -27,9 +27,9 @@ import (
 
 //Exec executes the rtree applet and does not return. The argument is os.Args
 //minus the leading "rtree" or "gofu rtree".
-func Exec(args []string) {
+func Exec(args []string) int {
 	if len(args) == 0 {
-		usageAndExit()
+		return usage()
 	}
 
 	index, errs := ReadIndex()
@@ -37,65 +37,64 @@ func Exec(args []string) {
 		for _, err := range errs {
 			util.ShowError(err)
 		}
-		os.Exit(255)
+		return 255
 	}
 
 	var err error
 	switch args[0] {
 	case "get":
 		if len(args) != 2 {
-			usageAndExit()
+			return usage()
 		}
 		err = commandGet(index, args[1])
 	case "drop":
 		if len(args) != 2 {
-			usageAndExit()
+			return usage()
 		}
 		err = commandDrop(index, args[1])
 	case "index":
 		if len(args) != 1 {
-			usageAndExit()
+			return usage()
 		}
 		err = commandIndex(index)
 	case "repos":
 		if len(args) != 1 {
-			usageAndExit()
+			return usage()
 		}
 		commandRepos(index)
 	case "remotes":
 		if len(args) != 1 {
-			usageAndExit()
+			return usage()
 		}
 		commandRemotes(index)
 	case "import":
 		if len(args) != 2 {
-			usageAndExit()
+			return usage()
 		}
 		err = commandImport(index, args[1])
 	case "each":
 		if len(args) < 2 {
-			usageAndExit()
+			return usage()
 		}
-		commandEach(index, args[1], args[2:])
+		return commandEach(index, args[1], args[2:])
 	default:
-		usageAndExit()
+		return usage()
 	}
 
 	if err == nil {
-		os.Exit(0)
-	} else {
-		util.ShowError(err)
-		os.Exit(1)
+		return 0
 	}
+	util.ShowError(err)
+	return 1
 }
 
-func usageAndExit() {
+func usage() int {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  rtree [get|drop] <url>")
 	fmt.Fprintln(os.Stderr, "  rtree [index|repos|remotes]")
 	fmt.Fprintln(os.Stderr, "  rtree import <path>")
 	fmt.Fprintln(os.Stderr, "  rtree each <command>")
-	os.Exit(1)
+	return 1
 }
 
 func commandGet(index *Index, url string) error {
@@ -145,7 +144,7 @@ func commandRemotes(index *Index) {
 	util.ShowSorted(items)
 }
 
-func commandEach(index *Index, command string, args []string) {
+func commandEach(index *Index, command string, args []string) int {
 	allOK := true
 	for _, repo := range index.Repos {
 		ok := repo.InteractiveExec(command, args...)
@@ -154,9 +153,10 @@ func commandEach(index *Index, command string, args []string) {
 		}
 	}
 
-	if !allOK {
-		os.Exit(1)
+	if allOK {
+		return 0
 	}
+	return 1
 }
 
 func commandImport(index *Index, dirPath string) error {
