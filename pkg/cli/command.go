@@ -16,44 +16,48 @@
 *
 *******************************************************************************/
 
-package util
+package cli
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"sort"
+	"io"
+	"os/exec"
 	"strings"
 )
 
-//ShowSorted sorts the given lines and prints them on stdout.
-func ShowSorted(lines []string) {
-	sort.Strings(lines)
-	fmt.Println(strings.Join(lines, "\n"))
+//Command describes a command that can be run using the methods in the
+//Interface interface.
+type Command struct {
+	Program []string
+	WorkDir string
 }
 
-//ShowError prints the given error on stderr if it is non-nil, or returns false otherwise.
-func ShowError(err error) bool {
-	if err == nil {
-		return false
+type commandError struct {
+	Cmd Command
+	Err error
+}
+
+func (e commandError) Error() string {
+	cmdline := strings.Join(e.Cmd.Program, " ")
+	if e.Cmd.WorkDir == "" {
+		return fmt.Sprintf("exec `%s`: %s",
+			cmdline, e.Err.Error(),
+		)
 	}
-	fmt.Fprintf(os.Stderr, "ERROR: %s\n", err.Error())
-	return true
+	return fmt.Sprintf("exec `%s` in %s: %s",
+		cmdline, e.Cmd.WorkDir, e.Err.Error(),
+	)
 }
 
-//FatalIfError prints the given error on stderr and exits with an error code.
-func FatalIfError(err error) {
+func (c Command) run(stdout, stderr io.Writer) error {
+	cmd := exec.Command(c.Program[0], c.Program[1:]...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.Dir = c.WorkDir
+
+	err := cmd.Run()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "FATAL: %s\n", err.Error())
-		os.Exit(255)
+		err = commandError{c, err}
 	}
-}
-
-var stdin = bufio.NewReader(os.Stdin)
-
-//ReadLine reads a line from stdin, with whitespace already trimmed.
-func ReadLine() string {
-	input, err := stdin.ReadString('\n')
-	FatalIfError(err)
-	return strings.TrimSpace(input)
+	return err
 }

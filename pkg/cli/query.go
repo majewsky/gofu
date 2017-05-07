@@ -21,29 +21,47 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"strings"
 
 	terminal "golang.org/x/crypto/ssh/terminal"
 )
 
-//Confirm displays a yes/no question and returns whether the user answered "yes".
-func Confirm(question string) bool {
-	os.Stdout.Write([]byte(strings.TrimSpace(question) + " [y/n] "))
+//cannot use `var errInterrupted = errors.New("Interrupted!")` because golint
+//complains about the formatting of the error message
+type errInterrupted struct{}
 
-	buf := buffer{Input: os.Stdin}
+func (e errInterrupted) Error() string {
+	return "Interrupted!"
+}
+
+type terminalTUI struct {
+	i *Interface
+}
+
+func (t terminalTUI) ReadLine(prompt string) (string, error) {
+	if prompt != "" {
+		t.i.safeStdout().Write([]byte(strings.TrimSpace(prompt) + " "))
+	}
+	str, err := t.i.stdinBuf.ReadString('\n')
+	return strings.TrimSpace(str), err
+}
+
+func (t terminalTUI) Confirm(question string) (bool, error) {
+	out := t.i.safeStdout()
+	out.Write([]byte(strings.TrimSpace(question) + " [y/n] "))
+
+	buf := buffer{Input: t.i.stdin}
 	for {
 		switch string(buf.getNextInput()) {
 		case "y", "Y":
-			os.Stdout.Write([]byte("-> yes\n"))
-			return true
+			out.Write([]byte("-> yes\n"))
+			return true, nil
 		case "n", "N":
-			os.Stdout.Write([]byte("-> no\n"))
-			return false
+			out.Write([]byte("-> no\n"))
+			return false, nil
 		case "\x03": // Ctrl-C
-			fmt.Fprintln(os.Stderr, "\nInterrupted!")
-			os.Exit(255)
+			return false, errInterrupted{}
 		}
 	}
 }
@@ -55,32 +73,32 @@ type Choice struct {
 	Shortcut byte
 	//The display string that describes this choice.
 	Text string
+	//The string to return from Interface.Query().
+	Return string
 }
 
 func (c Choice) hasShortcut() bool {
 	return c.Shortcut != '\000'
 }
 
-//Query displays a question and a set of answers and allows the user to select
-//one of the answers. Returns the selected Choice instance, as well as its
-//index in the original choices list (starting from 0).
-func Query(prompt string, choices ...Choice) (Choice, int) {
+func (t terminalTUI) Query(prompt string, choices ...Choice) (string, error) {
 	if len(choices) == 0 {
-		return Choice{}, -1
+		panic("no choices")
 	}
 
 	//disable line wrap; unexpected wrapping would confuse our cursor-moving code
-	os.Stdout.Write([]byte("\x1B[?7l"))
-	defer os.Stdout.Write([]byte("\x1B[?7h"))
+	out := t.i.safeStdout()
+	out.Write([]byte("\x1B[?7l"))
+	defer out.Write([]byte("\x1B[?7h"))
 
 	//display question
-	os.Stdout.Write([]byte(strings.TrimSuffix(prompt, "\n") + "\n"))
+	out.Write([]byte(strings.TrimSuffix(prompt, "\n") + "\n"))
 	selected := 0
 
-	buf := buffer{Input: os.Stdin}
+	buf := buffer{Input: t.i.stdin}
 OUTER:
 	for {
-		displayChoices(os.Stdout, choices, selected)
+		displayChoices(out, choices, selected)
 
 		input := buf.getNextInput()
 		if len(input) == 1 {
@@ -107,29 +125,28 @@ OUTER:
 				selected = len(choices) - 1
 			}
 		case "\x03": // Ctrl-C
-			fmt.Fprintln(os.Stderr, "Interrupted!")
-			os.Exit(255)
+			return "", errInterrupted{}
 		}
 
 		//prepare to re-render choices
-		removeDisplayLines(len(choices))
+		removeDisplayLines(out, len(choices))
 	}
 
 	//clear query display
-	removeDisplayLines(len(choices) + 1)
+	removeDisplayLines(out, len(choices)+1)
 
 	//display question + chosen answer
-	fmt.Fprintf(os.Stdout, "%s -> %s\n",
+	fmt.Fprintf(out, "%s -> %s\n",
 		strings.TrimSuffix(prompt, "\n"),
 		strings.TrimSpace(choices[selected].Text),
 	)
 
-	return choices[selected], selected
+	return choices[selected].Return, nil
 }
 
-func removeDisplayLines(n int) {
+func removeDisplayLines(stdout io.Writer, n int) {
 	for idx := 0; idx < n; idx++ {
-		os.Stdout.Write([]byte("\x1B[A\x1B[2K"))
+		stdout.Write([]byte("\x1B[A\x1B[2K"))
 	}
 }
 
@@ -193,7 +210,7 @@ func (b *buffer) getNextInput() []byte {
 	defer terminal.Restore(0, oldState)
 
 	//fill buffer some more
-	n, err := os.Stdin.Read(b.buf[b.fill:])
+	n, err := b.Input.Read(b.buf[b.fill:])
 	if err != nil {
 		panic(err)
 	}

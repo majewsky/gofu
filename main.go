@@ -23,26 +23,32 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/majewsky/gofu/pkg/cli"
 	"github.com/majewsky/gofu/pkg/rtree"
 )
 
 func main() {
-	os.Exit(execApplet(filepath.Base(os.Args[0]), os.Args[1:], true))
+	ci, err := cli.NewInterface(os.Stdin, os.Stdout, os.Stderr)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "FATAL: initialization failed")
+		os.Exit(255)
+	}
+	os.Exit(execApplet(ci, filepath.Base(os.Args[0]), os.Args[1:], true))
 }
 
-func execApplet(applet string, args []string, allowGofu bool) int {
+func execApplet(ci *cli.Interface, applet string, args []string, allowGofu bool) int {
 	//allow explicit specification of applet as "./build/gofu <applet> <args>"
 	if allowGofu && applet == "gofu" {
 		if len(args) == 0 {
 			fmt.Fprintln(os.Stderr, "Usage: gofu <applet> [args...]")
 			return 1
 		}
-		return execApplet(args[0], args[1:], false)
+		return execApplet(ci, args[0], args[1:], false)
 	}
 
 	switch applet {
 	case "rtree":
-		return rtree.Exec(args)
+		return rtree.Exec(ci, args)
 	default:
 		fmt.Fprintln(os.Stderr, "ERROR: unknown applet: "+applet)
 		return 255

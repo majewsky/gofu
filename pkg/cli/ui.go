@@ -29,6 +29,8 @@ type AnsiStyle string
 const (
 	//AnsiNormal reverts all styles to default.
 	AnsiNormal AnsiStyle = "0"
+	//AnsiBold makes the text bold.
+	AnsiBold AnsiStyle = "1"
 	//AnsiInverse swaps foreground and background color.
 	AnsiInverse AnsiStyle = "7"
 	//AnsiBlack is a foreground color.

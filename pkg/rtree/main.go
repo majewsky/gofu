@@ -19,150 +19,146 @@
 package rtree
 
 import (
-	"fmt"
-	"os"
+	"strings"
 
-	"github.com/majewsky/gofu/pkg/util"
+	"github.com/majewsky/gofu/pkg/cli"
 )
 
 //Exec executes the rtree applet and does not return. The argument is os.Args
 //minus the leading "rtree" or "gofu rtree".
-func Exec(args []string) int {
+func Exec(ci *cli.Interface, args []string) int {
 	if len(args) == 0 {
-		return usage()
+		return usage(ci)
 	}
 
 	index, errs := ReadIndex()
 	if len(errs) > 0 {
 		for _, err := range errs {
-			util.ShowError(err)
+			ci.ShowError(err.Error())
 		}
-		return 255
+		return 1
 	}
 
 	var err error
 	switch args[0] {
 	case "get":
 		if len(args) != 2 {
-			return usage()
+			return usage(ci)
 		}
-		err = commandGet(index, args[1])
+		err = commandGet(ci, index, args[1])
 	case "drop":
 		if len(args) != 2 {
-			return usage()
+			return usage(ci)
 		}
-		err = commandDrop(index, args[1])
+		err = commandDrop(ci, index, args[1])
 	case "index":
 		if len(args) != 1 {
-			return usage()
+			return usage(ci)
 		}
-		err = commandIndex(index)
+		err = commandIndex(ci, index)
 	case "repos":
 		if len(args) != 1 {
-			return usage()
+			return usage(ci)
 		}
-		commandRepos(index)
+		commandRepos(ci, index)
 	case "remotes":
 		if len(args) != 1 {
-			return usage()
+			return usage(ci)
 		}
-		commandRemotes(index)
+		commandRemotes(ci, index)
 	case "import":
 		if len(args) != 2 {
-			return usage()
+			return usage(ci)
 		}
-		err = commandImport(index, args[1])
+		err = commandImport(ci, index, args[1])
 	case "each":
 		if len(args) < 2 {
-			return usage()
+			return usage(ci)
 		}
-		return commandEach(index, args[1], args[2:])
+		return commandEach(ci, index, args[1:])
 	default:
-		return usage()
+		return usage(ci)
 	}
 
 	if err == nil {
 		return 0
 	}
-	util.ShowError(err)
+	ci.ShowError(err.Error())
 	return 1
 }
 
-func usage() int {
-	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  rtree [get|drop] <url>")
-	fmt.Fprintln(os.Stderr, "  rtree [index|repos|remotes]")
-	fmt.Fprintln(os.Stderr, "  rtree import <path>")
-	fmt.Fprintln(os.Stderr, "  rtree each <command>")
+var usageStr = strings.TrimSpace(`
+Usage:
+  rtree [get|drop] <url>
+  rtree [index|repos|remotes]
+  rtree import <path>
+  rtree each <command>
+`)
+
+func usage(ci *cli.Interface) int {
+	ci.ShowUsage(usageStr)
 	return 1
 }
 
-func commandGet(index *Index, url string) error {
-	repo, err := index.InteractiveFindRepo(url, true)
+func commandGet(ci *cli.Interface, index *Index, url string) error {
+	repo, err := index.FindRepo(ci, url, true)
 	if err != nil {
 		return err
 	}
-	fmt.Println(repo.AbsolutePath())
+	ci.ShowResult(repo.AbsolutePath())
 	return nil
 }
 
-func commandDrop(index *Index, url string) error {
-	repo, err := index.InteractiveFindRepo(url, true)
+func commandDrop(ci *cli.Interface, index *Index, url string) error {
+	repo, err := index.FindRepo(ci, url, true)
 	if err != nil {
 		return err
 	}
-	err = index.InteractiveDropRepo(repo)
-	if err != nil {
-		return err
-	}
-	return index.Write()
+	return index.DropRepo(ci, repo)
 }
 
-func commandIndex(index *Index) error {
-	err := index.InteractiveRebuild()
+func commandIndex(ci *cli.Interface, index *Index) error {
+	err := index.Rebuild(ci)
 	if err != nil {
 		return err
 	}
-	return index.Write()
+	return index.Write(ci)
 }
 
-func commandRepos(index *Index) {
+func commandRepos(ci *cli.Interface, index *Index) {
 	var items []string
 	for _, repo := range index.Repos {
 		items = append(items, repo.CheckoutPath)
 	}
-	util.ShowSorted(items)
+	ci.ShowResultsSorted(items)
 }
 
-func commandRemotes(index *Index) {
+func commandRemotes(ci *cli.Interface, index *Index) {
 	var items []string
 	for _, repo := range index.Repos {
 		for _, remote := range repo.Remotes {
 			items = append(items, remote.URL)
 		}
 	}
-	util.ShowSorted(items)
+	ci.ShowResultsSorted(items)
 }
 
-func commandEach(index *Index, command string, args []string) int {
-	allOK := true
+func commandEach(ci *cli.Interface, index *Index, cmdline []string) (exitCode int) {
+	exitCode = 0
 	for _, repo := range index.Repos {
-		ok := repo.InteractiveExec(command, args...)
-		if !ok {
-			allOK = false
+		err := repo.Exec(ci, cmdline...)
+		if err != nil {
+			ci.ShowError(err.Error())
+			exitCode = 1
 		}
 	}
-
-	if allOK {
-		return 0
-	}
-	return 1
+	return
 }
 
-func commandImport(index *Index, dirPath string) error {
-	err := index.InteractiveImportRepo(dirPath)
+func commandImport(ci *cli.Interface, index *Index, dirPath string) error {
+	err := index.ImportRepo(ci, dirPath)
 	if err != nil {
 		return err
 	}
-	return index.Write()
+	return index.Write(ci)
 }
