@@ -27,6 +27,10 @@ import (
 //Exec executes the rtree applet and does not return. The argument is os.Args
 //minus the leading "rtree" or "gofu rtree".
 func Exec(args []string) int {
+	if !Init() {
+		return 1
+	}
+
 	if len(args) == 0 {
 		return usage()
 	}

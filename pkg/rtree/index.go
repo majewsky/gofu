@@ -29,7 +29,6 @@ import (
 	"strings"
 
 	"github.com/majewsky/gofu/pkg/cli"
-	"github.com/majewsky/gofu/pkg/earlyerrors"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -39,22 +38,10 @@ type Index struct {
 	Repos []*Repo `yaml:"repos"`
 }
 
-var indexPath string
-
-func init() {
-	homeDir := os.Getenv("HOME")
-	if homeDir == "" {
-		earlyerrors.Put("$HOME is not set (rtree needs the HOME variable to locate its index file)")
-	} else {
-		indexPath = filepath.Join(homeDir, ".rtree/index.yaml")
-	}
-}
-
 //ReadIndex reads the index file.
 func ReadIndex() (*Index, []error) {
 	//read contents of index file
-	path := indexPath
-	buf, err := ioutil.ReadFile(path)
+	buf, err := ioutil.ReadFile(IndexPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Index{Repos: nil}, nil
@@ -73,7 +60,7 @@ func ReadIndex() (*Index, []error) {
 	var errs []error
 	missing := func(key string, args ...interface{}) {
 		errs = append(errs, fmt.Errorf("read %s: missing \"%s\"",
-			path, fmt.Sprintf(key, args...),
+			IndexPath, fmt.Sprintf(key, args...),
 		))
 	}
 	for idx, repo := range index.Repos {
@@ -110,12 +97,11 @@ func (i *Index) Write() error {
 		return err
 	}
 
-	path := indexPath
-	err = os.MkdirAll(filepath.Dir(path), 0755)
+	err = os.MkdirAll(filepath.Dir(IndexPath), 0755)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path, buf, 0644)
+	err = ioutil.WriteFile(IndexPath, buf, 0644)
 	if err != nil {
 		return err
 	}

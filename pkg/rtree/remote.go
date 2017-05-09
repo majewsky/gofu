@@ -23,40 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/majewsky/gofu/pkg/cli"
-	"github.com/majewsky/gofu/pkg/earlyerrors"
 )
-
-//remoteAlias describes an alias that can be used in a Git remote URL (as
-//defined by the "url.<base>.insteadOf" directive in man:git-config(1)).
-type remoteAlias struct {
-	Alias       string
-	Replacement string
-}
-
-var remoteAliases []*remoteAlias
-
-func init() {
-	out, err := cli.Interface.CaptureStdout(cli.Command{
-		Program: []string{"git", "config", "--global", "-l"},
-	})
-	if err != nil {
-		earlyerrors.Put(err.Error())
-	}
-
-	rx := regexp.MustCompile(`^url\.([^=]+)\.insteadof=(.+)$`)
-	for _, line := range strings.Split(out, "\n") {
-		match := rx.FindStringSubmatch(line)
-		if match == nil {
-			continue
-		}
-		remoteAliases = append(remoteAliases, &remoteAlias{
-			Alias:       match[2],
-			Replacement: match[1],
-		})
-	}
-}
 
 //ExpandRemoteURL derive the canonical URL for a given remote by substituting
 //aliases defined in the system-wide and user-global Git config. For example,
@@ -68,8 +35,8 @@ func init() {
 //
 //and the input "gh:foo/bar", this function returns "git://github.com/foo/bar".
 func ExpandRemoteURL(remoteURL string) string {
-	var best *remoteAlias
-	for _, current := range remoteAliases {
+	var best *RemoteAlias
+	for _, current := range RemoteAliases {
 		if strings.HasPrefix(remoteURL, current.Alias) {
 			if best == nil || len(best.Alias) < len(current.Alias) {
 				best = current

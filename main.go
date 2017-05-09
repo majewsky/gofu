@@ -23,19 +23,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/majewsky/gofu/pkg/cli"
-	"github.com/majewsky/gofu/pkg/earlyerrors"
 	"github.com/majewsky/gofu/pkg/rtree"
 )
 
 func main() {
-	if len(earlyerrors.Get()) > 0 {
-		for _, msg := range earlyerrors.Get() {
-			cli.Interface.ShowError(msg)
-		}
-		os.Exit(255)
-	}
-
 	os.Exit(execApplet(filepath.Base(os.Args[0]), os.Args[1:], true))
 }
 

@@ -26,21 +26,7 @@ import (
 	"strings"
 
 	"github.com/majewsky/gofu/pkg/cli"
-	"github.com/majewsky/gofu/pkg/earlyerrors"
 )
-
-//RootPath is the directory below which all repositories are located. Its value
-//is $GOPATH/src to match the repository layout created by `go get`.
-var RootPath string
-
-func init() {
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		earlyerrors.Put("$GOPATH is not set (rtree needs the GOPATH variable to know where to look for and place repos)")
-	} else {
-		RootPath = filepath.Join(gopath, "src")
-	}
-}
 
 //Repo describes the entry for a repository in the index file.
 type Repo struct {
