@@ -26,15 +26,15 @@ import (
 
 //Exec executes the rtree applet and does not return. The argument is os.Args
 //minus the leading "rtree" or "gofu rtree".
-func Exec(ci *cli.Interface, args []string) int {
+func Exec(args []string) int {
 	if len(args) == 0 {
-		return usage(ci)
+		return usage()
 	}
 
 	index, errs := ReadIndex()
 	if len(errs) > 0 {
 		for _, err := range errs {
-			ci.ShowError(err.Error())
+			cli.Interface.ShowError(err.Error())
 		}
 		return 1
 	}
@@ -43,47 +43,47 @@ func Exec(ci *cli.Interface, args []string) int {
 	switch args[0] {
 	case "get":
 		if len(args) != 2 {
-			return usage(ci)
+			return usage()
 		}
-		err = commandGet(ci, index, args[1])
+		err = commandGet(index, args[1])
 	case "drop":
 		if len(args) != 2 {
-			return usage(ci)
+			return usage()
 		}
-		err = commandDrop(ci, index, args[1])
+		err = commandDrop(index, args[1])
 	case "index":
 		if len(args) != 1 {
-			return usage(ci)
+			return usage()
 		}
-		err = commandIndex(ci, index)
+		err = commandIndex(index)
 	case "repos":
 		if len(args) != 1 {
-			return usage(ci)
+			return usage()
 		}
-		commandRepos(ci, index)
+		commandRepos(index)
 	case "remotes":
 		if len(args) != 1 {
-			return usage(ci)
+			return usage()
 		}
-		commandRemotes(ci, index)
+		commandRemotes(index)
 	case "import":
 		if len(args) != 2 {
-			return usage(ci)
+			return usage()
 		}
-		err = commandImport(ci, index, args[1])
+		err = commandImport(index, args[1])
 	case "each":
 		if len(args) < 2 {
-			return usage(ci)
+			return usage()
 		}
-		return commandEach(ci, index, args[1:])
+		return commandEach(index, args[1:])
 	default:
-		return usage(ci)
+		return usage()
 	}
 
 	if err == nil {
 		return 0
 	}
-	ci.ShowError(err.Error())
+	cli.Interface.ShowError(err.Error())
 	return 1
 }
 
@@ -95,70 +95,70 @@ Usage:
   rtree each <command>
 `)
 
-func usage(ci *cli.Interface) int {
-	ci.ShowUsage(usageStr)
+func usage() int {
+	cli.Interface.ShowUsage(usageStr)
 	return 1
 }
 
-func commandGet(ci *cli.Interface, index *Index, url string) error {
-	repo, err := index.FindRepo(ci, url, true)
+func commandGet(index *Index, url string) error {
+	repo, err := index.FindRepo(url, true)
 	if err != nil {
 		return err
 	}
-	ci.ShowResult(repo.AbsolutePath())
+	cli.Interface.ShowResult(repo.AbsolutePath())
 	return nil
 }
 
-func commandDrop(ci *cli.Interface, index *Index, url string) error {
-	repo, err := index.FindRepo(ci, url, true)
+func commandDrop(index *Index, url string) error {
+	repo, err := index.FindRepo(url, true)
 	if err != nil {
 		return err
 	}
-	return index.DropRepo(ci, repo)
+	return index.DropRepo(repo)
 }
 
-func commandIndex(ci *cli.Interface, index *Index) error {
-	err := index.Rebuild(ci)
+func commandIndex(index *Index) error {
+	err := index.Rebuild()
 	if err != nil {
 		return err
 	}
-	return index.Write(ci)
+	return index.Write()
 }
 
-func commandRepos(ci *cli.Interface, index *Index) {
+func commandRepos(index *Index) {
 	var items []string
 	for _, repo := range index.Repos {
 		items = append(items, repo.CheckoutPath)
 	}
-	ci.ShowResultsSorted(items)
+	cli.Interface.ShowResultsSorted(items)
 }
 
-func commandRemotes(ci *cli.Interface, index *Index) {
+func commandRemotes(index *Index) {
 	var items []string
 	for _, repo := range index.Repos {
 		for _, remote := range repo.Remotes {
 			items = append(items, remote.URL)
 		}
 	}
-	ci.ShowResultsSorted(items)
+	cli.Interface.ShowResultsSorted(items)
 }
 
-func commandEach(ci *cli.Interface, index *Index, cmdline []string) (exitCode int) {
+func commandEach(index *Index, cmdline []string) (exitCode int) {
 	exitCode = 0
 	for _, repo := range index.Repos {
-		err := repo.Exec(ci, cmdline...)
+		err := repo.Exec(cmdline...)
 		if err != nil {
-			ci.ShowError(err.Error())
+			cli.Interface.ShowError(err.Error())
 			exitCode = 1
 		}
 	}
 	return
 }
 
-func commandImport(ci *cli.Interface, index *Index, dirPath string) error {
-	err := index.ImportRepo(ci, dirPath)
+func commandImport(index *Index, dirPath string) error {
+	err := index.ImportRepo(dirPath)
 	if err != nil {
 		return err
 	}
-	return index.Write(ci)
+	return index.Write()
 }

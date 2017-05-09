@@ -26,7 +26,7 @@ import (
 )
 
 //Command describes a command that can be run using the methods in the
-//Interface interface.
+//Implementation interface.
 type Command struct {
 	Program []string
 	WorkDir string
@@ -49,8 +49,14 @@ func (e commandError) Error() string {
 	)
 }
 
-func (c Command) run(stdout, stderr io.Writer) error {
+//CommandRunner is a function that can execute commands given to it.
+//This interface is only useful for unit tests; the default CommandRunner
+//suffices for all regular operation.
+type CommandRunner func(c Command, stdin io.Reader, stdout, stderr io.Writer) error
+
+func DefaultCommandRunner(c Command, stdin io.Reader, stdout, stderr io.Writer) error {
 	cmd := exec.Command(c.Program[0], c.Program[1:]...)
+	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	cmd.Dir = c.WorkDir

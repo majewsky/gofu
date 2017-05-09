@@ -104,7 +104,7 @@ func (r reposByAbsPath) Less(i, j int) bool { return r[i].AbsolutePath() < r[j].
 func (r reposByAbsPath) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
 //Write writes the index file to disk.
-func (i *Index) Write(ci *cli.Interface) error {
+func (i *Index) Write() error {
 	buf, err := yaml.Marshal(i)
 	if err != nil {
 		return err
@@ -125,7 +125,7 @@ func (i *Index) Write(ci *cli.Interface) error {
 	warned := make(map[string]bool)
 	for _, repo := range i.Repos {
 		if seen[repo.CheckoutPath] && !warned[repo.CheckoutPath] {
-			ci.ShowWarning(
+			cli.Interface.ShowWarning(
 				fmt.Sprintf("repo %s appears multiple times in the index file!", repo.AbsolutePath()),
 			)
 			warned[repo.CheckoutPath] = true
@@ -137,7 +137,7 @@ func (i *Index) Write(ci *cli.Interface) error {
 }
 
 //Rebuild implements the `rtree index` subcommand.
-func (i *Index) Rebuild(ci *cli.Interface) error {
+func (i *Index) Rebuild() error {
 	//check if existing index entries are still checked out
 	var newRepos []*Repo
 	for _, repo := range i.Repos {
@@ -167,13 +167,13 @@ func (i *Index) Rebuild(ci *cli.Interface) error {
 
 		var selection string
 		if len(remoteURLs) == 0 {
-			selection, err = ci.Query(
+			selection, err = cli.Interface.Query(
 				fmt.Sprintf("repository %s has been deleted; no remote to restore from", filepath.Join(RootPath, repo.CheckoutPath)),
 				cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
 				cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
 			)
 		} else {
-			selection, err = ci.Query(
+			selection, err = cli.Interface.Query(
 				fmt.Sprintf("repository %s has been deleted", filepath.Join(RootPath, repo.CheckoutPath)),
 				cli.Choice{Return: "r", Shortcut: 'r', Text: "(r)estore from " + strings.Join(remoteURLs, " and ")},
 				cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
@@ -186,7 +186,7 @@ func (i *Index) Rebuild(ci *cli.Interface) error {
 
 		switch selection {
 		case "r":
-			err := repo.Checkout(ci)
+			err := repo.Checkout()
 			if err != nil {
 				return err
 			}
@@ -204,7 +204,7 @@ func (i *Index) Rebuild(ci *cli.Interface) error {
 	}
 
 	//index new repos
-	err := ForeachPhysicalRepo(ci, func(newRepo Repo) error {
+	err := ForeachPhysicalRepo(func(newRepo Repo) error {
 		repo, exists := existingRepos[newRepo.CheckoutPath]
 		if exists {
 			//update the existing index entry with the new remotes
@@ -225,7 +225,7 @@ func (i *Index) Rebuild(ci *cli.Interface) error {
 //FindRepo locates the repo with the given remote if it exists on disk or (if
 //allowClone is set) clones it and adds it to the index. This is the meat of
 //`rtree get`, and is also used by `rtree drop`.
-func (i *Index) FindRepo(ci *cli.Interface, remoteURL string, allowClone bool) (*Repo, error) {
+func (i *Index) FindRepo(remoteURL string, allowClone bool) (*Repo, error) {
 	//make sure that stdout is not used for prompts
 	originalStdout := os.Stdout
 	os.Stdout = os.Stderr
@@ -277,12 +277,12 @@ func (i *Index) FindRepo(ci *cli.Interface, remoteURL string, allowClone bool) (
 
 	//if no fork candidates found, clone as new repo
 	if len(candidates) == 0 {
-		err := newRepo.Checkout(ci)
+		err := newRepo.Checkout()
 		if err != nil {
 			return nil, err
 		}
 		i.Repos = append(i.Repos, &newRepo)
-		i.Write(ci)
+		i.Write()
 		return &newRepo, nil
 	}
 
@@ -300,18 +300,18 @@ func (i *Index) FindRepo(ci *cli.Interface, remoteURL string, allowClone bool) (
 		Shortcut: 'n',
 		Text:     "clone to " + newRepo.AbsolutePath(),
 	}
-	selection, err := ci.Query("Found possible fork candidates. What to do?", choices...)
+	selection, err := cli.Interface.Query("Found possible fork candidates. What to do?", choices...)
 	if err != nil {
 		return nil, err
 	}
 
 	if selection == "clone" {
-		err := newRepo.Checkout(ci)
+		err := newRepo.Checkout()
 		if err != nil {
 			return nil, err
 		}
 		i.Repos = append(i.Repos, &newRepo)
-		i.Write(ci)
+		i.Write()
 		return &newRepo, nil
 	}
 
@@ -330,12 +330,12 @@ func (i *Index) FindRepo(ci *cli.Interface, remoteURL string, allowClone bool) (
 		prompt += fmt.Sprintf("\t(%s) %s\n", remote.Name, remote.URL)
 	}
 	prompt += fmt.Sprintf("Enter remote name for %s:", remoteURL)
-	remoteName, err := ci.ReadLine(prompt)
+	remoteName, err := cli.Interface.ReadLine(prompt)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ci.Run(cli.Command{
+	err = cli.Interface.Run(cli.Command{
 		Program: []string{"git", "remote", "add", remoteName, remoteURL},
 		WorkDir: target.AbsolutePath(),
 	})
@@ -343,7 +343,7 @@ func (i *Index) FindRepo(ci *cli.Interface, remoteURL string, allowClone bool) (
 		return nil, err
 	}
 
-	err = ci.Run(cli.Command{
+	err = cli.Interface.Run(cli.Command{
 		Program: []string{"git", "remote", "update", remoteName},
 		WorkDir: target.AbsolutePath(),
 	})
@@ -355,18 +355,18 @@ func (i *Index) FindRepo(ci *cli.Interface, remoteURL string, allowClone bool) (
 		Name: remoteName,
 		URL:  remoteURL,
 	})
-	i.Write(ci)
+	i.Write()
 	return target, nil
 }
 
 //ImportRepo moves the given repo into the rtree and adds it to the index.
-func (i *Index) ImportRepo(ci *cli.Interface, dirPath string) error {
+func (i *Index) ImportRepo(dirPath string) error {
 	//need to make dirPath absolute first
 	dirPath, err := filepath.Abs(dirPath)
 	if err != nil {
 		return err
 	}
-	repo, err := NewRepoFromAbsolutePath(ci, dirPath)
+	repo, err := NewRepoFromAbsolutePath(dirPath)
 	if err != nil {
 		return err
 	}
@@ -399,7 +399,7 @@ func (i *Index) ImportRepo(ci *cli.Interface, dirPath string) error {
 		}
 
 		question := fmt.Sprintf("Repo has multiple remotes. Where to put below %s?", RootPath)
-		checkoutPath, err = ci.Query(question, choices...)
+		checkoutPath, err = cli.Interface.Query(question, choices...)
 		if err != nil {
 			return err
 		}
@@ -422,12 +422,12 @@ func (i *Index) ImportRepo(ci *cli.Interface, dirPath string) error {
 }
 
 //DropRepo deletes the given repo from the rtree and removes it from the index.
-func (i *Index) DropRepo(ci *cli.Interface, repo *Repo) error {
-	err := repo.Exec(ci, "git", "status")
+func (i *Index) DropRepo(repo *Repo) error {
+	err := repo.Exec("git", "status")
 	if err != nil {
 		return err
 	}
-	ok, err := ci.Confirm(">> Drop this repo?")
+	ok, err := cli.Interface.Confirm(">> Drop this repo?")
 	if !ok || err != nil {
 		return err
 	}
@@ -444,5 +444,5 @@ func (i *Index) DropRepo(ci *cli.Interface, repo *Repo) error {
 		}
 	}
 	i.Repos = reposNew
-	return i.Write(ci)
+	return i.Write()
 }

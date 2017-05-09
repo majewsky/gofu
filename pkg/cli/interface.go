@@ -30,32 +30,40 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-//NewInterface creates an Interface instance.
-func NewInterface(stdin, stdout, stderr *os.File) *Interface {
-	i := &Interface{
-		stdin:    stdin,
-		stdout:   stdout,
-		stderr:   stderr,
-		stdinBuf: bufio.NewReader(stdin),
-	}
+//Interface wraps access to the CLI, including input, output and subprocesses.
+var Interface *Implementation
 
-	if terminal.IsTerminal(int(stdin.Fd())) {
-		i.tui = &terminalTUI{i}
-	} else {
-		i.tui = &pipeTUI{i}
-	}
-
-	return i
+func init() {
+	SetupInterface(os.Stdin, os.Stdout, os.Stderr, DefaultCommandRunner)
 }
 
-//Interface wraps access to the CLI, including input, output and subprocesses.
-type Interface struct {
+//SetupInterface prepares the Interface instance with nonstandard file streams
+//or a nonstandard CommandRunner. This is only required for unit tests.
+func SetupInterface(stdin io.Reader, stdout, stderr io.Writer, commandRunner CommandRunner) {
+	Interface = &Implementation{
+		stdin:         stdin,
+		stdout:        stdout,
+		stderr:        stderr,
+		stdinBuf:      bufio.NewReader(stdin),
+		commandRunner: commandRunner,
+	}
+
+	if stdinFile, ok := stdin.(*os.File); ok && terminal.IsTerminal(int(stdinFile.Fd())) {
+		Interface.tui = &terminalTUI{Interface}
+	} else {
+		Interface.tui = &pipeTUI{Interface}
+	}
+}
+
+//Implementation wraps access to the CLI, including input, output and subprocesses.
+type Implementation struct {
 	//TODO: flag isStdinTerminal that disables color output and swaps out the TUI instance
-	stdin    io.Reader
-	stdout   io.Writer
-	stderr   io.Writer
-	stdinBuf *bufio.Reader
-	tui      TUI
+	stdin         io.Reader
+	stdout        io.Writer
+	stderr        io.Writer
+	stdinBuf      *bufio.Reader
+	tui           TUI
+	commandRunner CommandRunner
 	//If this flag is set, only ShowResult() will write into stdout; everything
 	//else that usually goes to stdout goes to stderr instead.
 	//
@@ -65,7 +73,7 @@ type Interface struct {
 	StdoutProtected bool
 }
 
-//TUI provides the interactive parts of the cli.Interface, so that these can be
+//TUI provides the interactive parts of the cli.Implementation, so that these can be
 //easily swapped out for mock implementations in unit tests.
 type TUI interface {
 	//ReadLine reads a line from stdin (if tty: uses canonical mode).
@@ -77,7 +85,7 @@ type TUI interface {
 	Query(prompt string, choices ...Choice) (string, error)
 }
 
-func (i *Interface) safeStdout() io.Writer {
+func (i *Implementation) safeStdout() io.Writer {
 	if i.StdoutProtected {
 		return i.stderr
 	}
@@ -88,18 +96,18 @@ func (i *Interface) safeStdout() io.Writer {
 // input
 
 //ReadLine reads a line from stdin (if tty: uses canonical mode).
-func (i *Interface) ReadLine(prompt string) (string, error) {
+func (i *Implementation) ReadLine(prompt string) (string, error) {
 	return i.tui.ReadLine(prompt)
 }
 
 //Confirm displays a yes/no question and returns whether the user answered "yes".
-func (i *Interface) Confirm(question string) (bool, error) {
+func (i *Implementation) Confirm(question string) (bool, error) {
 	return i.tui.Confirm(question)
 }
 
 //Query displays a question and a set of answers and allows the user to select
 //one of the answers. Returns the Return attribute of the selected Choice.
-func (i *Interface) Query(prompt string, choices ...Choice) (string, error) {
+func (i *Implementation) Query(prompt string, choices ...Choice) (string, error) {
 	return i.tui.Query(prompt, choices...)
 }
 
@@ -107,14 +115,14 @@ func (i *Interface) Query(prompt string, choices ...Choice) (string, error) {
 // subprocesses
 
 //Run executes the given command on the same stdout and stderr.
-func (i *Interface) Run(c Command) error {
-	return c.run(i.safeStdout(), i.stderr)
+func (i *Implementation) Run(c Command) error {
+	return i.commandRunner(c, nil, i.safeStdout(), i.stderr)
 }
 
 //CaptureStdout executes the given command on the same stderr and captures its stdout.
-func (i *Interface) CaptureStdout(c Command) (string, error) {
+func (i *Implementation) CaptureStdout(c Command) (string, error) {
 	var buf bytes.Buffer
-	err := c.run(&buf, i.stderr)
+	err := i.commandRunner(c, nil, &buf, i.stderr)
 	return string(buf.Bytes()), err
 }
 
@@ -122,13 +130,13 @@ func (i *Interface) CaptureStdout(c Command) (string, error) {
 // output
 
 //ShowResult displays the result of a computation on stdout.
-func (i *Interface) ShowResult(str string) {
+func (i *Implementation) ShowResult(str string) {
 	str = strings.TrimSpace(str) + "\n"
 	i.stdout.Write([]byte(str))
 }
 
 //ShowResultsSorted calls ShowResult() on each of the results after sorting them.
-func (i *Interface) ShowResultsSorted(strs []string) {
+func (i *Implementation) ShowResultsSorted(strs []string) {
 	sort.Strings(strs)
 	for _, str := range strs {
 		i.ShowResult(str)
@@ -136,22 +144,22 @@ func (i *Interface) ShowResultsSorted(strs []string) {
 }
 
 //ShowProgress displays a progress message on stderr.
-func (i *Interface) ShowProgress(str string) {
+func (i *Implementation) ShowProgress(str string) {
 	fmt.Fprintf(i.stderr, "\x1B[0;1;36m>>\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
 }
 
 //ShowWarning displays a warning message on stderr.
-func (i *Interface) ShowWarning(str string) {
+func (i *Implementation) ShowWarning(str string) {
 	fmt.Fprintf(i.stderr, "\x1B[0;1;33m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
 }
 
 //ShowError displays an error message on stderr.
-func (i *Interface) ShowError(str string) {
+func (i *Implementation) ShowError(str string) {
 	fmt.Fprintf(i.stderr, "\x1B[0;1;31m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
 }
 
 //ShowUsage displays a usage synopsis on stderr.
-func (i *Interface) ShowUsage(str string) {
+func (i *Implementation) ShowUsage(str string) {
 	str = strings.TrimSpace(str) + "\n"
 	i.stderr.Write([]byte(str))
 }

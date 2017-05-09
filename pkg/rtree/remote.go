@@ -19,13 +19,12 @@
 package rtree
 
 import (
-	"bytes"
 	"net/url"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/majewsky/gofu/pkg/cli"
 	"github.com/majewsky/gofu/pkg/earlyerrors"
 )
 
@@ -39,16 +38,15 @@ type remoteAlias struct {
 var remoteAliases []*remoteAlias
 
 func init() {
-	cmd := exec.Command("git", "config", "--global", "-l")
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	err := cmd.Run()
+	out, err := cli.Interface.CaptureStdout(cli.Command{
+		Program: []string{"git", "config", "--global", "-l"},
+	})
 	if err != nil {
-		earlyerrors.Put("exec `git config --global -l` failed: " + err.Error())
+		earlyerrors.Put(err.Error())
 	}
 
 	rx := regexp.MustCompile(`^url\.([^=]+)\.insteadof=(.+)$`)
-	for _, line := range strings.Split(string(buf.Bytes()), "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		match := rx.FindStringSubmatch(line)
 		if match == nil {
 			continue

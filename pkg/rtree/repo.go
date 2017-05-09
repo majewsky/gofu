@@ -65,14 +65,14 @@ func (r Repo) AbsolutePath() string {
 
 //NewRepoFromAbsolutePath initializes a Repo instance by scanning the existing
 //checkout at the given path.
-func NewRepoFromAbsolutePath(ci *cli.Interface, path string) (repo Repo, err error) {
+func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 	repo.CheckoutPath, err = filepath.Rel(RootPath, path)
 	if err != nil {
 		return
 	}
 
 	//list remotes
-	out, err := ci.CaptureStdout(cli.Command{
+	out, err := cli.Interface.CaptureStdout(cli.Command{
 		Program: []string{"git", "config", "-l"},
 		WorkDir: path,
 	})
@@ -113,7 +113,7 @@ var remoteConfigRx = regexp.MustCompile(`remote\.([^=]+)\.url=(.+)`)
 //ForeachPhysicalRepo walks over the repository tree, executing the action
 //function once for every repo encountered (but *not* for repos contained
 //within other repos, e.g. submodules).
-func ForeachPhysicalRepo(ci *cli.Interface, action func(repo Repo) error) error {
+func ForeachPhysicalRepo(action func(repo Repo) error) error {
 	return filepath.Walk(RootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -128,7 +128,7 @@ func ForeachPhysicalRepo(ci *cli.Interface, action func(repo Repo) error) error 
 		}
 
 		//appears to be a repo
-		repo, err := NewRepoFromAbsolutePath(ci, path)
+		repo, err := NewRepoFromAbsolutePath(path)
 		if err == nil {
 			err = action(repo)
 		}
@@ -142,7 +142,7 @@ func ForeachPhysicalRepo(ci *cli.Interface, action func(repo Repo) error) error 
 
 //Checkout creates the repo in the given path with the given remotes. The
 //working copy will only be initialized if there is an "origin" remote.
-func (r Repo) Checkout(ci *cli.Interface) error {
+func (r Repo) Checkout() error {
 	//check if we have an "origin" remote to clone from
 	var originURL string
 	for _, remote := range r.Remotes {
@@ -153,15 +153,15 @@ func (r Repo) Checkout(ci *cli.Interface) error {
 	}
 
 	if originURL == "" {
-		err := ci.Run(cli.Command{
+		err := cli.Interface.Run(cli.Command{
 			Program: []string{"git", "init", r.AbsolutePath()},
 		})
 		if err != nil {
 			return err
 		}
-		ci.ShowWarning(`will not checkout anything since there is no remote named "origin"`)
+		cli.Interface.ShowWarning(`will not checkout anything since there is no remote named "origin"`)
 	} else {
-		err := ci.Run(cli.Command{
+		err := cli.Interface.Run(cli.Command{
 			Program: []string{"git", "clone", originURL, r.AbsolutePath()},
 		})
 		if err != nil {
@@ -172,7 +172,7 @@ func (r Repo) Checkout(ci *cli.Interface) error {
 	remotesAdded := false
 	for _, remote := range r.Remotes {
 		if remote.Name != "origin" {
-			err := ci.Run(cli.Command{
+			err := cli.Interface.Run(cli.Command{
 				Program: []string{"git", "remote", "add", remote.Name, remote.URL},
 				WorkDir: r.AbsolutePath(),
 			})
@@ -183,7 +183,7 @@ func (r Repo) Checkout(ci *cli.Interface) error {
 		}
 	}
 	if remotesAdded {
-		return ci.Run(cli.Command{
+		return cli.Interface.Run(cli.Command{
 			Program: []string{"git", "remote", "update"},
 			WorkDir: r.AbsolutePath(),
 		})
@@ -194,9 +194,9 @@ func (r Repo) Checkout(ci *cli.Interface) error {
 
 //Exec implements the meat of the `rtree exec` command. It returns
 //true iff the command exited successfully.
-func (r Repo) Exec(ci *cli.Interface, cmdline ...string) error {
-	ci.ShowProgress(r.AbsolutePath())
-	return ci.Run(cli.Command{
+func (r Repo) Exec(cmdline ...string) error {
+	cli.Interface.ShowProgress(r.AbsolutePath())
+	return cli.Interface.Run(cli.Command{
 		Program: cmdline,
 		WorkDir: r.AbsolutePath(),
 	})

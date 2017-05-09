@@ -41,7 +41,7 @@ func (e errInterrupted) Error() string {
 // TUI implementation for when stdin is a terminal
 
 type terminalTUI struct {
-	i *Interface
+	i *Implementation
 }
 
 func (t terminalTUI) ReadLine(prompt string) (string, error) {
@@ -78,7 +78,7 @@ type Choice struct {
 	Shortcut byte
 	//The display string that describes this choice.
 	Text string
-	//The string to return from Interface.Query().
+	//The string to return from Implementation.Query().
 	Return string
 }
 
@@ -228,7 +228,7 @@ func (b *buffer) getNextInput() []byte {
 // TUI implementation for when stdin is a pipe
 
 type pipeTUI struct {
-	i *Interface
+	i *Implementation
 }
 
 func (t *pipeTUI) ReadLine(prompt string) (string, error) {
