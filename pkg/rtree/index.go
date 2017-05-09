@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/majewsky/gofu/pkg/cli"
+	"github.com/majewsky/gofu/pkg/earlyerrors"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -38,18 +39,21 @@ type Index struct {
 	Repos []*Repo `yaml:"repos"`
 }
 
-func indexPath() string {
+var indexPath string
+
+func init() {
 	homeDir := os.Getenv("HOME")
 	if homeDir == "" {
-		panic(errors.New("$HOME is not set (rtree needs the HOME variable to locate its index file)"))
+		earlyerrors.Put("$HOME is not set (rtree needs the HOME variable to locate its index file)")
+	} else {
+		indexPath = filepath.Join(homeDir, ".rtree/index.yaml")
 	}
-	return filepath.Join(homeDir, ".rtree/index.yaml")
 }
 
 //ReadIndex reads the index file.
 func ReadIndex() (*Index, []error) {
 	//read contents of index file
-	path := indexPath()
+	path := indexPath
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -106,7 +110,7 @@ func (i *Index) Write(ci *cli.Interface) error {
 		return err
 	}
 
-	path := indexPath()
+	path := indexPath
 	err = os.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
 		return err

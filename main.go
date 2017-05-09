@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/majewsky/gofu/pkg/cli"
+	"github.com/majewsky/gofu/pkg/earlyerrors"
 	"github.com/majewsky/gofu/pkg/rtree"
 )
 
@@ -33,6 +34,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "FATAL: initialization failed")
 		os.Exit(255)
 	}
+
+	if len(earlyerrors.Get()) > 0 {
+		for _, msg := range earlyerrors.Get() {
+			ci.ShowError(msg)
+		}
+		os.Exit(255)
+	}
+
 	os.Exit(execApplet(ci, filepath.Base(os.Args[0]), os.Args[1:], true))
 }
 

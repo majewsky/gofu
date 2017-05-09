@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/majewsky/gofu/pkg/earlyerrors"
 )
 
 //remoteAlias describes an alias that can be used in a Git remote URL (as
@@ -42,7 +44,7 @@ func init() {
 	cmd.Stdout = &buf
 	err := cmd.Run()
 	if err != nil {
-		panic(err)
+		earlyerrors.Put("exec `git config --global -l` failed: " + err.Error())
 	}
 
 	rx := regexp.MustCompile(`^url\.([^=]+)\.insteadof=(.+)$`)
