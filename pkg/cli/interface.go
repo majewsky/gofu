@@ -26,18 +26,26 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 //NewInterface creates an Interface instance.
-func NewInterface(stdin, stdout, stderr *os.File) (*Interface, error) {
-	//TODO: check terminal.IsTerminal(int(stdin.Fd())) and choose the TUI instance accordingly
-	return &Interface{
+func NewInterface(stdin, stdout, stderr *os.File) *Interface {
+	i := &Interface{
 		stdin:    stdin,
 		stdout:   stdout,
 		stderr:   stderr,
 		stdinBuf: bufio.NewReader(stdin),
-		tui:      &terminalTUI{},
-	}, nil
+	}
+
+	if terminal.IsTerminal(int(stdin.Fd())) {
+		i.tui = &terminalTUI{i}
+	} else {
+		i.tui = &pipeTUI{i}
+	}
+
+	return i
 }
 
 //Interface wraps access to the CLI, including input, output and subprocesses.

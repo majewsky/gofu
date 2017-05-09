@@ -19,9 +19,11 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
 	terminal "golang.org/x/crypto/ssh/terminal"
@@ -34,6 +36,9 @@ type errInterrupted struct{}
 func (e errInterrupted) Error() string {
 	return "Interrupted!"
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// TUI implementation for when stdin is a terminal
 
 type terminalTUI struct {
 	i *Interface
@@ -217,4 +222,61 @@ func (b *buffer) getNextInput() []byte {
 	b.fill += n
 
 	return b.getNextInput() //restart
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// TUI implementation for when stdin is a pipe
+
+type pipeTUI struct {
+	i *Interface
+}
+
+func (t *pipeTUI) ReadLine(prompt string) (string, error) {
+	str, err := t.i.stdinBuf.ReadString('\n')
+	str = strings.TrimSpace(str)
+	if err == nil {
+		fmt.Fprintf(t.i.stderr, "%s %s\n", strings.TrimSpace(prompt), str)
+	}
+	return str, err
+}
+
+func (t *pipeTUI) Confirm(question string) (bool, error) {
+	question = strings.TrimSpace(question)
+	str, err := t.ReadLine(question)
+	if err != nil {
+		return false, err
+	}
+	//recognize /[01tTfF]|true|false/
+	ok, err := strconv.ParseBool(str)
+	if err != nil {
+		//recognize /[yY]|yes|no/
+		ok = strings.HasPrefix(question, "y") || strings.HasPrefix(question, "Y")
+	}
+	fmt.Fprintf(t.i.stderr, "%s -> %v (%s)\n", question, ok, str)
+	return ok, nil
+}
+
+//Query for the pipe TUI is limited to exact matches of the choice text, or
+//matching by choice shortcut.
+func (t *pipeTUI) Query(prompt string, choices ...Choice) (string, error) {
+	str, err := t.i.stdinBuf.ReadString('\n')
+	if err != nil {
+		return str, err
+	}
+	//prefer exact match on choice.Text
+	for _, choice := range choices {
+		if choice.Text == str {
+			fmt.Fprintf(t.i.stderr, "%s -> %s\n", prompt, choice.Text)
+			return choice.Return, nil
+		}
+	}
+	//allow match on choice.Shortcut
+	for _, choice := range choices {
+		if string(choice.Shortcut) == str {
+			fmt.Fprintf(t.i.stderr, "%s -> %s\n", prompt, choice.Text)
+			return choice.Return, nil
+		}
+	}
+	fmt.Fprintf(t.i.stderr, "%s -> [%s]\n", prompt, str)
+	return "", errors.New("cannot match input with available choices")
 }

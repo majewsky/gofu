@@ -29,12 +29,7 @@ import (
 )
 
 func main() {
-	ci, err := cli.NewInterface(os.Stdin, os.Stdout, os.Stderr)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "FATAL: initialization failed")
-		os.Exit(255)
-	}
-
+	ci := cli.NewInterface(os.Stdin, os.Stdout, os.Stderr)
 	if len(earlyerrors.Get()) > 0 {
 		for _, msg := range earlyerrors.Get() {
 			ci.ShowError(msg)
