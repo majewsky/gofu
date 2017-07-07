@@ -273,6 +273,8 @@ func (t *pipeTUI) Query(prompt string, choices ...Choice) (string, error) {
 	if err != nil {
 		return str, err
 	}
+	str = strings.TrimSpace(str)
+
 	//prefer exact match on choice.Text
 	for _, choice := range choices {
 		if choice.Text == str {

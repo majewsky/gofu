@@ -92,6 +92,7 @@ func (r reposByAbsPath) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
 //Write writes the index file to disk.
 func (i *Index) Write() error {
+	sort.Sort(reposByAbsPath(i.Repos))
 	buf, err := yaml.Marshal(i)
 	if err != nil {
 		return err
@@ -304,7 +305,7 @@ func (i *Index) FindRepo(remoteURL string, allowClone bool) (*Repo, error) {
 	//find the repo selected by the user
 	var target *Repo
 	for _, repo := range candidates {
-		if target.CheckoutPath == selection {
+		if repo.CheckoutPath == selection {
 			target = repo
 			break
 		}
