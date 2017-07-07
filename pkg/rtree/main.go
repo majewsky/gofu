@@ -24,8 +24,11 @@ import (
 	"github.com/majewsky/gofu/pkg/cli"
 )
 
-//Exec executes the rtree applet and does not return. The argument is os.Args
-//minus the leading "rtree" or "gofu rtree".
+//Exec executes the rtree applet and returns an exit code (0 for success, >0
+//for error). The argument is os.Args minus the leading "rtree" or "gofu
+//rtree". All side-effects (reading from stdin, writing to stdout/stderr,
+//executing other programs) pass through cli.Interface and can be intercepted
+//there for the purpose of testing.
 func Exec(args []string) int {
 	if !Init() {
 		return 1

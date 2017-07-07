@@ -54,6 +54,7 @@ func (e commandError) Error() string {
 //suffices for all regular operation.
 type CommandRunner func(c Command, stdin io.Reader, stdout, stderr io.Writer) error
 
+//DefaultCommandRunner is a CommandRunner that actually executes the command.
 func DefaultCommandRunner(c Command, stdin io.Reader, stdout, stderr io.Writer) error {
 	cmd := exec.Command(c.Program[0], c.Program[1:]...)
 	cmd.Stdin = stdin

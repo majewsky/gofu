@@ -57,7 +57,6 @@ func SetupInterface(stdin io.Reader, stdout, stderr io.Writer, commandRunner Com
 
 //Implementation wraps access to the CLI, including input, output and subprocesses.
 type Implementation struct {
-	//TODO: flag isStdinTerminal that disables color output and swaps out the TUI instance
 	stdin         io.Reader
 	stdout        io.Writer
 	stderr        io.Writer
@@ -83,6 +82,10 @@ type TUI interface {
 	//Query displays a question and a set of answers and allows the user to select
 	//one of the answers. Returns the Return attribute of the selected Choice.
 	Query(prompt string, choices ...Choice) (string, error)
+	//Print writes the given string (potentially including ANSI escape codes) to
+	//the given writer. At this point, it can be decided whether to strip out the
+	//ANSI escape codes.
+	Print(w io.Writer, msg string)
 }
 
 func (i *Implementation) safeStdout() io.Writer {
@@ -145,17 +148,17 @@ func (i *Implementation) ShowResultsSorted(strs []string) {
 
 //ShowProgress displays a progress message on stderr.
 func (i *Implementation) ShowProgress(str string) {
-	fmt.Fprintf(i.stderr, "\x1B[0;1;36m>>\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
+	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;36m>>\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str)))
 }
 
 //ShowWarning displays a warning message on stderr.
 func (i *Implementation) ShowWarning(str string) {
-	fmt.Fprintf(i.stderr, "\x1B[0;1;33m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
+	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;33m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str)))
 }
 
 //ShowError displays an error message on stderr.
 func (i *Implementation) ShowError(str string) {
-	fmt.Fprintf(i.stderr, "\x1B[0;1;31m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str))
+	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;31m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str)))
 }
 
 //ShowUsage displays a usage synopsis on stderr.

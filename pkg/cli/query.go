@@ -44,6 +44,10 @@ type terminalTUI struct {
 	i *Implementation
 }
 
+func (t terminalTUI) Print(w io.Writer, msg string) {
+	w.Write([]byte(msg))
+}
+
 func (t terminalTUI) ReadLine(prompt string) (string, error) {
 	if prompt != "" {
 		t.i.safeStdout().Write([]byte(strings.TrimSpace(prompt) + " "))
@@ -225,10 +229,16 @@ func (b *buffer) getNextInput() []byte {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// TUI implementation for when stdin is a pipe
+// TUI implementation for when stdin is a pipe (also used in unit tests)
 
 type pipeTUI struct {
 	i *Implementation
+}
+
+var ansiColorCodeRx = regexp.MustCompile("\x1B" + `\[[0-9;]*m`)
+
+func (t *pipeTUI) Print(w io.Writer, msg string) {
+	w.Write([]byte(ansiColorCodeRx.ReplaceAllString(msg, "")))
 }
 
 func (t *pipeTUI) ReadLine(prompt string) (string, error) {
