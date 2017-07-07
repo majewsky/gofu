@@ -137,6 +137,24 @@ type RecordedCommand struct {
 	Fails  bool
 }
 
+//Recorded is a shortcut function for initializing a []RecordedCommand. It
+//splits each line on whitespace to obtain the command line of that command,
+//and recognizes a leading "@/some/path" to set the workdir.
+//
+//This function can only be used for RecordedCommands without output that do not fail.
+func Recorded(lines ...string) (cs []RecordedCommand) {
+	cs = make([]RecordedCommand, len(lines))
+	for idx, line := range lines {
+		cmdline := strings.Fields(line)
+		if strings.HasPrefix(cmdline[0], "@") {
+			cs[idx].Cmd.WorkDir = strings.TrimPrefix(cmdline[0], "@")
+			cmdline = cmdline[1:]
+		}
+		cs[idx].Cmd.Program = cmdline
+	}
+	return
+}
+
 //CommandSimulator implements the cli.CommandRunner interface (via its Next
 //method). When a cli.Command is given to Next(), it is matched with the next
 //command in the .Cmd list, and the result from that RecordedCommand is

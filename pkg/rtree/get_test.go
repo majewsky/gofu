@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
-
-	"github.com/majewsky/gofu/pkg/cli"
 )
 
 var testIndexWithTwoRepos = Index{
@@ -63,14 +61,10 @@ func TestGetNewRepo(t *testing.T) {
 	target := filepath.Join(RootPath, "/github.com/another/repo")
 
 	Test{
-		Args:         []string{"get", "gh:another/repo"},
-		Index:        testIndexWithTwoRepos,
-		ExpectOutput: target + "\n",
-		ExpectExecution: []RecordedCommand{
-			{Cmd: cli.Command{
-				Program: []string{"git", "clone", "gh:another/repo", target},
-			}},
-		},
+		Args:            []string{"get", "gh:another/repo"},
+		Index:           testIndexWithTwoRepos,
+		ExpectOutput:    target + "\n",
+		ExpectExecution: Recorded("git clone gh:another/repo " + target),
 		ExpectIndex: &Index{
 			Repos: []*Repo{
 				{
@@ -99,16 +93,10 @@ func TestGetNewForkAsRemote(t *testing.T) {
 				"Enter remote name for https://example.com/git: myfork\n",
 			target,
 		),
-		ExpectExecution: []RecordedCommand{
-			{Cmd: cli.Command{
-				Program: []string{"git", "remote", "add", "myfork", "https://example.com/git"},
-				WorkDir: target,
-			}},
-			{Cmd: cli.Command{
-				Program: []string{"git", "remote", "update", "myfork"},
-				WorkDir: target,
-			}},
-		},
+		ExpectExecution: Recorded(
+			"@"+target+" git remote add myfork https://example.com/git",
+			"@"+target+" git remote update myfork",
+		),
 		ExpectIndex: &Index{
 			Repos: []*Repo{
 				testIndexWithTwoRepos.Repos[0],
@@ -135,11 +123,7 @@ func TestGetNewForkAsSeparate(t *testing.T) {
 			"Found possible fork candidates. What to do? -> clone to %s\n",
 			target,
 		),
-		ExpectExecution: []RecordedCommand{
-			{Cmd: cli.Command{
-				Program: []string{"git", "clone", "https://example.com/git", target},
-			}},
-		},
+		ExpectExecution: Recorded("git clone https://example.com/git " + target),
 		ExpectIndex: &Index{
 			Repos: []*Repo{
 				{
