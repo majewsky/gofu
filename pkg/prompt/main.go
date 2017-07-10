@@ -16,38 +16,31 @@
 *
 *******************************************************************************/
 
-package main
+package prompt
 
-import (
-	"fmt"
-	"os"
-	"path/filepath"
+import "os"
 
-	"github.com/majewsky/gofu/pkg/prompt"
-	"github.com/majewsky/gofu/pkg/rtree"
-)
+//Exec executes the prettyprompt applet and returns an exit code (0 for
+//success, >0 for error).
+func Exec() int {
+	var buf LineBuffer
+	addLogin(&buf)
 
-func main() {
-	os.Exit(execApplet(filepath.Base(os.Args[0]), os.Args[1:], true))
+	os.Stdout.Write(buf.Bytes())
+	os.Stdout.Write([]byte("\n"))
+	return 0
 }
 
-func execApplet(applet string, args []string, allowGofu bool) int {
-	//allow explicit specification of applet as "./build/gofu <applet> <args>"
-	if allowGofu && applet == "gofu" {
-		if len(args) == 0 {
-			fmt.Fprintln(os.Stderr, "Usage: gofu <applet> [args...]")
-			return 1
-		}
-		return execApplet(args[0], args[1:], false)
+func getenvOrDefault(key, defaultValue string) (value string) {
+	value = os.Getenv(key)
+	if value == "" {
+		value = defaultValue
 	}
+	return
+}
 
-	switch applet {
-	case "prettyprompt":
-		return prompt.Exec()
-	case "rtree":
-		return rtree.Exec(args)
-	default:
-		fmt.Fprintln(os.Stderr, "ERROR: unknown applet: "+applet)
-		return 255
+func handleError(err error) {
+	if err != nil {
+		os.Stderr.Write([]byte("\x1B[1;31mPrompt error: " + err.Error() + "\x1B[0m\n"))
 	}
 }
