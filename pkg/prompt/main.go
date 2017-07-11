@@ -19,8 +19,11 @@
 package prompt
 
 import (
+	"fmt"
 	"os"
 	"strings"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/majewsky/gofu/pkg/cli"
 )
@@ -32,6 +35,24 @@ func Exec() int {
 		getLoginField(),
 	}
 	line := strings.Join(fields, " ")
+	lineWidth := getPrintableLength(line)
+
+	//add dashes to expand `line` to fill the terminal's width
+	termWidth, _, err := terminal.GetSize(0)
+	if err != nil {
+		termWidth = 80
+	}
+	if termWidth > lineWidth {
+		line += " "
+		lineWidth++
+	}
+	if termWidth > lineWidth {
+		dashes := make([]byte, termWidth-lineWidth)
+		for idx := range dashes {
+			dashes[idx] = '-'
+		}
+		line += string(dashes)
+	}
 
 	os.Stdout.Write([]byte(line + "\n"))
 	return 0
@@ -52,7 +73,7 @@ func handleError(err error) {
 }
 
 func getPrintableLength(text string) int {
-	return len(cli.AnsiEscapeRx.ReplaceAllString(text, ""))
+	return len(cli.AnsiColorCodeRx.ReplaceAllString(text, ""))
 }
 
 //withColor adds ANSI escape sequences to the string to display it with a
@@ -63,5 +84,10 @@ func withColor(color, text string) string {
 	if color == "0" {
 		return text
 	}
-	return "\x1B[" + color + "m" + text + "\x1B[0m"
+	return fmt.Sprintf("\x1B[%sm%s\x1B[0m", color, text)
+}
+
+//withType adds a type annotation with a standardized format to the text.
+func withType(typeStr, text string) string {
+	return fmt.Sprintf("\x1B[37m%s:\x1B[0m%s", typeStr, text)
 }

@@ -186,9 +186,7 @@ func displayChoices(out io.Writer, choices []Choice, selectedIndex int) {
 	}
 }
 
-//AnsiEscapeRx is a regexp that matches full ANSI escape sequences that start
-//with the CSI.
-var AnsiEscapeRx = regexp.MustCompile(`^\x1B\[[\x20-\x3F]*[\x40-\x7E]`)
+var ansiEscapeRx = regexp.MustCompile(`^\x1B\[[\x20-\x3F]*[\x40-\x7E]`)
 
 type buffer struct {
 	Input io.Reader
@@ -206,7 +204,7 @@ func (b *buffer) getNextInput() []byte {
 	}
 
 	//do we have a full ANSI escape sequence?
-	match := AnsiEscapeRx.Find(b.buf[0:b.fill])
+	match := ansiEscapeRx.Find(b.buf[0:b.fill])
 	if match != nil {
 		result := append([]byte(nil), match...)
 		copy(b.buf[0:], b.buf[len(match):])
@@ -237,10 +235,11 @@ type pipeTUI struct {
 	i *Implementation
 }
 
-var ansiColorCodeRx = regexp.MustCompile("\x1B" + `\[[0-9;]*m`)
+//AnsiColorCodeRx is a regexp that matches ANSI escape sequences of the type SGR.
+var AnsiColorCodeRx = regexp.MustCompile("\x1B" + `\[[0-9;]*m`)
 
 func (t *pipeTUI) Print(w io.Writer, msg string) {
-	w.Write([]byte(ansiColorCodeRx.ReplaceAllString(msg, "")))
+	w.Write([]byte(AnsiColorCodeRx.ReplaceAllString(msg, "")))
 }
 
 func (t *pipeTUI) ReadLine(prompt string) (string, error) {
