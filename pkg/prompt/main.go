@@ -18,16 +18,22 @@
 
 package prompt
 
-import "os"
+import (
+	"os"
+	"strings"
+
+	"github.com/majewsky/gofu/pkg/cli"
+)
 
 //Exec executes the prettyprompt applet and returns an exit code (0 for
 //success, >0 for error).
 func Exec() int {
-	var buf LineBuffer
-	addLogin(&buf)
+	fields := []string{
+		getLoginField(),
+	}
+	line := strings.Join(fields, " ")
 
-	os.Stdout.Write(buf.Bytes())
-	os.Stdout.Write([]byte("\n"))
+	os.Stdout.Write([]byte(line + "\n"))
 	return 0
 }
 
@@ -43,4 +49,19 @@ func handleError(err error) {
 	if err != nil {
 		os.Stderr.Write([]byte("\x1B[1;31mPrompt error: " + err.Error() + "\x1B[0m\n"))
 	}
+}
+
+func getPrintableLength(text string) int {
+	return len(cli.AnsiEscapeRx.ReplaceAllString(text, ""))
+}
+
+//withColor adds ANSI escape sequences to the string to display it with a
+//certain color. The color is given as the semicolon-separated list of
+//arguments to the ANSI escape sequence SGR, e.g. "1;41" for bold with red
+//background.
+func withColor(color, text string) string {
+	if color == "0" {
+		return text
+	}
+	return "\x1B[" + color + "m" + text + "\x1B[0m"
 }

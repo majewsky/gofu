@@ -186,7 +186,9 @@ func displayChoices(out io.Writer, choices []Choice, selectedIndex int) {
 	}
 }
 
-var ansiEscapeRx = regexp.MustCompile(`^\x1B\[[\x20-\x3F]*[\x40-\x7E]`)
+//AnsiEscapeRx is a regexp that matches full ANSI escape sequences that start
+//with the CSI.
+var AnsiEscapeRx = regexp.MustCompile(`^\x1B\[[\x20-\x3F]*[\x40-\x7E]`)
 
 type buffer struct {
 	Input io.Reader
@@ -204,7 +206,7 @@ func (b *buffer) getNextInput() []byte {
 	}
 
 	//do we have a full ANSI escape sequence?
-	match := ansiEscapeRx.Find(b.buf[0:b.fill])
+	match := AnsiEscapeRx.Find(b.buf[0:b.fill])
 	if match != nil {
 		result := append([]byte(nil), match...)
 		copy(b.buf[0:], b.buf[len(match):])

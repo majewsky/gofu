@@ -24,7 +24,9 @@ import "os"
 //#include <pwd.h>
 import "C"
 
-func addLogin(buf *LineBuffer) {
+func getLoginField() string {
+	var result string
+
 	//show user name
 	userName := getUserName()
 	commonUser := getenvOrDefault("PRETTYPROMPT_COMMONUSER", "stefan")
@@ -33,8 +35,7 @@ func addLogin(buf *LineBuffer) {
 		if userName == "root" {
 			color = "1;41"
 		}
-		buf.WriteWithColor(userName, color)
-		buf.Write([]byte("@"))
+		result = withColor(color, userName) + "@"
 	}
 
 	//show hostname
@@ -43,11 +44,10 @@ func addLogin(buf *LineBuffer) {
 		handleError(err)
 		hostname = "<unknown>"
 	}
-	buf.WriteWithColor(
+	return result + withColor(
 		getenvOrDefault("PRETTYPROMPT_HOSTCOLOR", "0;33"),
 		hostname,
-	)
-	buf.Write([]byte(" "))
+	) + " "
 }
 
 func getUserName() string {
