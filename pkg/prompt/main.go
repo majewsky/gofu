@@ -61,6 +61,17 @@ func Exec() int {
 	}
 
 	os.Stdout.Write([]byte(line + "\n"))
+
+	//print second line: a letter identifying the shell, and the final "$ ")
+	shellIdent := ""
+	switch os.Getenv("PRETTYPROMPT_SHELL") {
+	case "zsh":
+		shellIdent = "Z"
+	case "bash":
+		shellIdent = "B"
+	}
+	os.Stdout.Write([]byte(shellIdent + "$ "))
+
 	return 0
 }
 
