@@ -63,8 +63,12 @@ func getRepoStatusField(repoRootPath string) string {
 	bytes, err = ioutil.ReadFile(filepath.Join(repoRootPath, ".git", refSpec))
 	commitID := strings.TrimSpace(string(bytes))
 	if err != nil {
-		handleError(err)
-		commitID = withColor("1;41", "unknown")
+		if os.IsNotExist(err) {
+			commitID = withColor("37", "blank")
+		} else {
+			handleError(err)
+			commitID = withColor("1;41", "unknown")
+		}
 	}
 
 	return formatRepoStatusField(refSpecDisplay, commitID)
