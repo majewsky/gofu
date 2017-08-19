@@ -148,17 +148,17 @@ func (i *Implementation) ShowResultsSorted(strs []string) {
 
 //ShowProgress displays a progress message on stderr.
 func (i *Implementation) ShowProgress(str string) {
-	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;36m>>\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str)))
+	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;36m>>\x1B[0;36m %s\x1B[0m\n", strings.TrimSpace(str)))
 }
 
 //ShowWarning displays a warning message on stderr.
 func (i *Implementation) ShowWarning(str string) {
-	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;33m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str)))
+	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;33m!!\x1B[0;33m %s\x1B[0m\n", strings.TrimSpace(str)))
 }
 
 //ShowError displays an error message on stderr.
 func (i *Implementation) ShowError(str string) {
-	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;31m!!\x1B[0;36m %s\x1B[0m", strings.TrimSpace(str)))
+	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;31m!!\x1B[0;31m %s\x1B[0m\n", strings.TrimSpace(str)))
 }
 
 //ShowUsage displays a usage synopsis on stderr.
