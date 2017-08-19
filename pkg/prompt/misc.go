@@ -18,7 +18,10 @@
 
 package prompt
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 func getTerminalField() string {
 	termName := os.Getenv("TERM")
@@ -29,4 +32,12 @@ func getTerminalField() string {
 		termName = withColor("1;41", "not set")
 	}
 	return withType("term", termName)
+}
+
+func getExitCodeField(arg string) string {
+	exitCode, err := strconv.Atoi(arg)
+	if err == nil && exitCode > 0 {
+		return withColor("1;31", "exit:"+arg)
+	}
+	return ""
 }

@@ -30,7 +30,7 @@ import (
 
 //Exec executes the prettyprompt applet and returns an exit code (0 for
 //success, >0 for error).
-func Exec() int {
+func Exec(args []string) int {
 	fields := []string{
 		getLoginField(),
 	}
@@ -39,6 +39,10 @@ func Exec() int {
 	fields = appendUnlessEmpty(fields, getDeletedMessageField(cwd))
 	fields = appendUnlessEmpty(fields, getRepoStatusField(cwd.RepoRootPath))
 	fields = appendUnlessEmpty(fields, getTerminalField())
+	//this field should always be last
+	if len(args) > 0 {
+		fields = appendUnlessEmpty(fields, getExitCodeField(args[0]))
+	}
 
 	line := strings.Join(fields, " ")
 	lineWidth := getPrintableLength(line)

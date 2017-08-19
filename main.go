@@ -43,7 +43,7 @@ func execApplet(applet string, args []string, allowGofu bool) int {
 
 	switch applet {
 	case "prettyprompt":
-		return prompt.Exec()
+		return prompt.Exec(args)
 	case "rtree":
 		return rtree.Exec(args)
 	default:
