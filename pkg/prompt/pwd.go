@@ -31,7 +31,7 @@ type Directory struct {
 	InBuildTree bool
 	InRepoTree  bool
 	// RepoRootPath string
-	// LastAccessiblePath string
+	NearestAccessiblePath string
 }
 
 //CurrentDirectory prepares a Directory struct for the current working
@@ -49,26 +49,33 @@ func NewDirectory(path string) (dir Directory) {
 	dir.Path = path
 	dir.DisplayPath = path
 
-	//display tag if below /x/build
-	if buildPath := os.Getenv("BUILD_ROOT"); buildPath != "" {
-		rel, _ := filepath.Rel(buildPath, dir.DisplayPath)
-		if !strings.HasPrefix(rel, "..") && rel != "." {
-			dir.InBuildTree = true
-			dir.DisplayPath = filepath.Join("/", rel)
+	//check if path actually exists
+	dir.NearestAccessiblePath = findNearestAccessiblePath(dir.Path)
+	if dir.NearestAccessiblePath == dir.Path {
+		dir.NearestAccessiblePath = "" //marks that everything is okay existence-wise
+
+		//display tag if below /x/build
+		if buildPath := os.Getenv("BUILD_ROOT"); buildPath != "" {
+			rel, _ := filepath.Rel(buildPath, dir.DisplayPath)
+			if !strings.HasPrefix(rel, "..") && rel != "." {
+				dir.InBuildTree = true
+				dir.DisplayPath = filepath.Join("/", rel)
+			}
 		}
+
+		//display tag if below /x/src
+		if gopath := os.Getenv("GOPATH"); gopath != "" {
+			repoPath := filepath.Join(gopath, "src")
+			rel, _ := filepath.Rel(repoPath, dir.DisplayPath)
+			if !strings.HasPrefix(rel, "..") && rel != "." {
+				dir.InRepoTree = true
+				dir.DisplayPath = rel
+			}
+		}
+
+		dir.stripHomeDirFromDisplay()
 	}
 
-	//display tag if below /x/src
-	if gopath := os.Getenv("GOPATH"); gopath != "" {
-		repoPath := filepath.Join(gopath, "src")
-		rel, _ := filepath.Rel(repoPath, dir.DisplayPath)
-		if !strings.HasPrefix(rel, "..") && rel != "." {
-			dir.InRepoTree = true
-			dir.DisplayPath = rel
-		}
-	}
-
-	dir.stripHomeDirFromDisplay()
 	return
 }
 
@@ -96,12 +103,29 @@ func (dir *Directory) stripHomeDirFromDisplay() {
 	}
 }
 
+func findNearestAccessiblePath(path string) string {
+	_, err := os.Stat(path)
+	if err == nil {
+		return path
+	}
+	return findNearestAccessiblePath(filepath.Dir(path))
+}
+
 func getDirectoryField(dir Directory) string {
 	if dir.DisplayPath == "" {
 		return ""
 	}
 
-	txt := withColor("1;36", dir.DisplayPath)
+	//highlight inaccessible path elements
+	var txt string
+	if dir.NearestAccessiblePath == "" {
+		txt = withColor("1;36", dir.DisplayPath)
+	} else {
+		rel, _ := filepath.Rel(dir.NearestAccessiblePath, dir.Path)
+		txt = withColor("1;36", dir.NearestAccessiblePath+"/") + withColor("1;31", rel)
+	}
+
+	//apply tags
 	if dir.InRepoTree {
 		txt = withType("repo", txt)
 	}
@@ -109,4 +133,11 @@ func getDirectoryField(dir Directory) string {
 		txt = withType("build", txt)
 	}
 	return txt
+}
+
+func getDeletedMessageField(dir Directory) string {
+	if dir.NearestAccessiblePath == "" {
+		return ""
+	}
+	return withColor("1;41", "cannot stat cwd")
 }
