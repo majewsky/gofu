@@ -34,6 +34,9 @@ func Exec() int {
 	fields := []string{
 		getLoginField(),
 	}
+	cwd := CurrentDirectory()
+	fields = appendUnlessEmpty(fields, getDirectoryField(cwd))
+
 	line := strings.Join(fields, " ")
 	lineWidth := getPrintableLength(line)
 
@@ -51,7 +54,7 @@ func Exec() int {
 		for idx := range dashes {
 			dashes[idx] = '-'
 		}
-		line += string(dashes)
+		line += withColor("1", string(dashes))
 	}
 
 	os.Stdout.Write([]byte(line + "\n"))
@@ -64,6 +67,13 @@ func getenvOrDefault(key, defaultValue string) (value string) {
 		value = defaultValue
 	}
 	return
+}
+
+func appendUnlessEmpty(list []string, val string) []string {
+	if val == "" {
+		return list
+	}
+	return append(list, val)
 }
 
 func handleError(err error) {

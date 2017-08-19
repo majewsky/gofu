@@ -47,7 +47,7 @@ func getLoginField() string {
 	return result + withColor(
 		getenvOrDefault("PRETTYPROMPT_HOSTCOLOR", "0;33"),
 		hostname,
-	) + " "
+	)
 }
 
 func getUserName() string {
