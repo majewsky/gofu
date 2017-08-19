@@ -116,18 +116,6 @@ func findNearestAccessiblePath(path string) string {
 	return findNearestAccessiblePath(filepath.Dir(path))
 }
 
-//Returns empty string if `path` is not inside a Git repo.
-func findRepoRootPath(path string) string {
-	_, err := os.Stat(filepath.Join(path, ".git"))
-	if err == nil {
-		return path
-	}
-	if path == "/" {
-		return ""
-	}
-	return findRepoRootPath(filepath.Dir(path))
-}
-
 func getDirectoryField(dir Directory) string {
 	if dir.DisplayPath == "" {
 		return ""

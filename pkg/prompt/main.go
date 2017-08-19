@@ -37,6 +37,7 @@ func Exec() int {
 	cwd := CurrentDirectory()
 	fields = appendUnlessEmpty(fields, getDirectoryField(cwd))
 	fields = appendUnlessEmpty(fields, getDeletedMessageField(cwd))
+	fields = appendUnlessEmpty(fields, getRepoStatusField(cwd.RepoRootPath))
 	fields = appendUnlessEmpty(fields, getTerminalField())
 
 	line := strings.Join(fields, " ")
