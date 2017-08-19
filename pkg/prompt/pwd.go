@@ -26,11 +26,11 @@ import (
 
 //Directory contains all data about a directory that the prompt needs.
 type Directory struct {
-	Path        string
-	DisplayPath string
-	InBuildTree bool
-	InRepoTree  bool
-	// RepoRootPath string
+	Path                  string
+	DisplayPath           string
+	InBuildTree           bool
+	InRepoTree            bool
+	RepoRootPath          string
 	NearestAccessiblePath string
 }
 
@@ -52,7 +52,8 @@ func NewDirectory(path string) (dir Directory) {
 	//check if path actually exists
 	dir.NearestAccessiblePath = findNearestAccessiblePath(dir.Path)
 	if dir.NearestAccessiblePath == dir.Path {
-		dir.NearestAccessiblePath = "" //marks that everything is okay existence-wise
+		//marks that everything is okay existence-wise
+		dir.NearestAccessiblePath = ""
 
 		//display tag if below /x/build
 		if buildPath := os.Getenv("BUILD_ROOT"); buildPath != "" {
@@ -73,7 +74,11 @@ func NewDirectory(path string) (dir Directory) {
 			}
 		}
 
+		//strip $HOME prefix if applicable and desirable
 		dir.stripHomeDirFromDisplay()
+
+		//check if we are inside a Git repository
+		dir.RepoRootPath = findRepoRootPath(dir.Path)
 	}
 
 	return
@@ -111,16 +116,35 @@ func findNearestAccessiblePath(path string) string {
 	return findNearestAccessiblePath(filepath.Dir(path))
 }
 
+//Returns empty string if `path` is not inside a Git repo.
+func findRepoRootPath(path string) string {
+	_, err := os.Stat(filepath.Join(path, ".git"))
+	if err == nil {
+		return path
+	}
+	if path == "/" {
+		return ""
+	}
+	return findRepoRootPath(filepath.Dir(path))
+}
+
 func getDirectoryField(dir Directory) string {
 	if dir.DisplayPath == "" {
 		return ""
 	}
 
-	//highlight inaccessible path elements
-	var txt string
+	txt := withColor("1;36", dir.DisplayPath)
 	if dir.NearestAccessiblePath == "" {
-		txt = withColor("1;36", dir.DisplayPath)
+		//cwd accessible -> highlight path elements inside the repo (if any)
+		if dir.RepoRootPath != "" && dir.RepoRootPath != dir.Path {
+			rel, _ := filepath.Rel(dir.RepoRootPath, dir.Path)
+			if strings.HasSuffix(dir.DisplayPath, rel) {
+				base := strings.TrimSuffix(dir.DisplayPath, rel)
+				txt = withColor("0;36", base) + withColor("1;36", rel)
+			}
+		}
 	} else {
+		//cwd inaccessible -> highlight inaccessible path elements
 		rel, _ := filepath.Rel(dir.NearestAccessiblePath, dir.Path)
 		txt = withColor("1;36", dir.NearestAccessiblePath+"/") + withColor("1;31", rel)
 	}
