@@ -39,6 +39,8 @@ func Exec(args []string) int {
 	fields = appendUnlessEmpty(fields, getDeletedMessageField(cwd))
 	fields = appendUnlessEmpty(fields, getRepoStatusField(cwd.RepoRootPath))
 	fields = appendUnlessEmpty(fields, getTerminalField())
+	fields = appendUnlessEmpty(fields, getOpenstackField())
+	fields = appendUnlessEmpty(fields, getKubernetesField())
 	//this field should always be last
 	if len(args) > 0 {
 		fields = appendUnlessEmpty(fields, getExitCodeField(args[0]))
