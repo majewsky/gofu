@@ -162,7 +162,7 @@ func (i *Index) Rebuild() error {
 		} else {
 			selection, err = cli.Interface.Query(
 				fmt.Sprintf("repository %s has been deleted", filepath.Join(RootPath, repo.CheckoutPath)),
-				cli.Choice{Return: "r", Shortcut: 'r', Text: "(r)estore from " + strings.Join(remoteURLs, " and ")},
+				cli.Choice{Return: "r", Shortcut: 'r', Text: "restore from " + strings.Join(remoteURLs, " and ")},
 				cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
 				cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
 			)

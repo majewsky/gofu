@@ -77,7 +77,7 @@ entry is missing, the user will be prompted about what to do:
 ```
 $ rtree index
 repository /x/src/github.com/Masterminds/sprig has been deleted
- [r] (r)estore from https://github.com/Masterminds/sprig
+ [r] restore from https://github.com/Masterminds/sprig
  [d] delete from index
  [s] skip
 ```
