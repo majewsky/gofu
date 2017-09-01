@@ -22,6 +22,7 @@ import "os"
 
 //#include <sys/types.h>
 //#include <pwd.h>
+//#include <unistd.h>
 import "C"
 
 func getLoginField() string {
@@ -52,7 +53,7 @@ func getLoginField() string {
 
 func getUserName() string {
 	//try to find username via getpwuid(getuid())
-	pw, err := C.getpwuid(C.__uid_t(os.Getuid()))
+	pw, err := C.getpwuid(C.getuid())
 	if err == nil {
 		return C.GoString(pw.pw_name)
 	}
