@@ -66,7 +66,7 @@ When `rtree get` clones a new repo, it will look for existing repos with the
 same basename, and prompt the user about whether to treat this repo as a fork
 of some other repo:
 
-```bash
+```
 $ cg gh:forkof/holo
 Found possible fork candidates. What to do?
  [ ] add as remote to /x/src/aur.archlinux.org/holo
