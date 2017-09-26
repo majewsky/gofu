@@ -117,7 +117,7 @@ func commandGet(index *Index, url string) error {
 }
 
 func commandDrop(index *Index, url string) error {
-	repo, err := index.FindRepo(url, true)
+	repo, err := index.FindRepo(url, false)
 	if err != nil {
 		return err
 	}
