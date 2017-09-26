@@ -62,12 +62,24 @@ $ pwd
 /x/src/github.com/majewsky/gofu
 ```
 
+When `rtree get` clones a new repo, it will look for existing repos with the
+same basename, and prompt the user about whether to treat this repo as a fork
+of some other repo:
+
+```bash
+$ cg gh:forkof/holo
+Found possible fork candidates. What to do?
+ [ ] add as remote to /x/src/aur.archlinux.org/holo
+ [ ] add as remote to /x/src/github.com/holocm/holo
+ [n] clone to /x/src/github.com/forkof/holo
+```
+
 There are a few other subcommands in `rtree`:
 
 * `rtree drop <URL>` deletes the local repo identified by the given remote URL (after asking for confirmation).
 * `rtree repos` lists the paths (below `$GOPATH/src`) of all local repos.
 * `rtree remotes` lists the remote URLs of all local repos.
-* `rtree each <COMMAND>` executes the given command in each repository.
+* `rtree each <COMMAND>` executes the given command in each repository. My most common usecase is `rtree each git status --short`.
 * `rtree import <PATH>` takes a path to a local Git repo, and moves it to the correct place below `$GOPATH/src`.
 
 Finally, `rtree index` rebuilds the index file (`~/.rtree/index.yaml`) that all of these operations use to find repos
