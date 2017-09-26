@@ -214,11 +214,7 @@ func (i *Index) Rebuild() error {
 //`rtree get`, and is also used by `rtree drop`.
 func (i *Index) FindRepo(remoteURL string, allowClone bool) (*Repo, error) {
 	//make sure that stdout is not used for prompts
-	originalStdout := os.Stdout
-	os.Stdout = os.Stderr
-	defer func() {
-		os.Stdout = originalStdout
-	}()
+	cli.Interface.StdoutProtected = true
 
 	expandedRemoteURL := ExpandRemoteURL(remoteURL)
 	basename := path.Base(expandedRemoteURL)
