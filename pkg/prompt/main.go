@@ -37,7 +37,7 @@ func Exec(args []string) int {
 	cwd := CurrentDirectory()
 	fields = appendUnlessEmpty(fields, getDirectoryField(cwd))
 	fields = appendUnlessEmpty(fields, getDeletedMessageField(cwd))
-	fields = appendUnlessEmpty(fields, getRepoStatusField(cwd.RepoRootPath))
+	fields = appendUnlessEmpty(fields, getRepoStatusField(cwd.Repo))
 	fields = appendUnlessEmpty(fields, getTerminalField())
 	fields = appendUnlessEmpty(fields, getOpenstackField())
 	fields = appendUnlessEmpty(fields, getKubernetesField())

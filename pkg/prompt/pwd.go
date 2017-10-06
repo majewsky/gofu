@@ -30,7 +30,7 @@ type Directory struct {
 	DisplayPath           string
 	InBuildTree           bool
 	InRepoTree            bool
-	RepoRootPath          string
+	Repo                  *gitRepo
 	NearestAccessiblePath string
 }
 
@@ -78,7 +78,9 @@ func NewDirectory(path string) (dir Directory) {
 		dir.stripHomeDirFromDisplay()
 
 		//check if we are inside a Git repository
-		dir.RepoRootPath = findRepoRootPath(dir.Path)
+		var err error
+		dir.Repo, err = findRepo(dir.Path)
+		handleError(err)
 	}
 
 	return
@@ -124,8 +126,8 @@ func getDirectoryField(dir Directory) string {
 	txt := withColor("1;36", dir.DisplayPath)
 	if dir.NearestAccessiblePath == "" {
 		//cwd accessible -> highlight path elements inside the repo (if any)
-		if dir.RepoRootPath != "" && dir.RepoRootPath != dir.Path {
-			rel, _ := filepath.Rel(dir.RepoRootPath, dir.Path)
+		if dir.Repo != nil && dir.Repo.RootPath != dir.Path {
+			rel, _ := filepath.Rel(dir.Repo.RootPath, dir.Path)
 			if strings.HasSuffix(dir.DisplayPath, rel) {
 				base := strings.TrimSuffix(dir.DisplayPath, rel)
 				txt = withColor("0;36", base) + withColor("1;36", rel)

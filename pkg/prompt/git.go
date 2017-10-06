@@ -19,30 +19,64 @@
 package prompt
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-//Returns empty string if `path` is not inside a Git repo.
-func findRepoRootPath(path string) string {
-	_, err := os.Stat(filepath.Join(path, ".git"))
-	if err == nil {
-		return path
-	}
-	if path == "/" {
-		return ""
-	}
-	return findRepoRootPath(filepath.Dir(path))
+type gitRepo struct {
+	RootPath string
+	GitDir   string
 }
 
-func getRepoStatusField(repoRootPath string) string {
-	if repoRootPath == "" {
+//Returns two empty strings if `path` is not inside a Git repo.
+func findRepo(path string) (*gitRepo, error) {
+	//find .git directory or file
+	gitEntry := filepath.Join(path, ".git")
+	fi, err := os.Stat(gitEntry)
+	switch {
+	case err == nil:
+		//found - continue below with further checks
+	case !os.IsNotExist(err):
+		return nil, err
+	case path == "/":
+		return nil, nil
+	default:
+		return findRepo(filepath.Dir(path))
+	}
+
+	//found .git - what is it?
+	if fi.Mode().IsDir() {
+		//normal case - .git is a directory
+		return &gitRepo{RootPath: path, GitDir: gitEntry}, nil
+	}
+
+	//.git is a file (e.g. for submodules) - it contains a line like "gitdir: path/to/gitdir"
+	bytes, err := ioutil.ReadFile(gitEntry)
+	if err != nil {
+		return nil, err
+	}
+	for _, line := range strings.Split(string(bytes), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "gitdir:") {
+			return &gitRepo{
+				RootPath: path,
+				GitDir:   filepath.Join(path, strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))),
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("read %s: missing gitdir directive", gitEntry)
+}
+
+func getRepoStatusField(repo *gitRepo) string {
+	if repo == nil {
 		return ""
 	}
 
-	bytes, err := ioutil.ReadFile(filepath.Join(repoRootPath, ".git/HEAD"))
+	bytes, err := ioutil.ReadFile(filepath.Join(repo.GitDir, "HEAD"))
 	if err != nil {
 		handleError(err)
 		return withType("git", withColor("1;41", "unknown"))
@@ -60,7 +94,7 @@ func getRepoStatusField(repoRootPath string) string {
 	refSpecDisplay = strings.TrimPrefix(refSpecDisplay, "heads/")
 
 	//read file corresponding to refspec to find commit
-	bytes, err = ioutil.ReadFile(filepath.Join(repoRootPath, ".git", refSpec))
+	bytes, err = ioutil.ReadFile(filepath.Join(repo.GitDir, refSpec))
 	commitID := strings.TrimSpace(string(bytes))
 	if err != nil {
 		if os.IsNotExist(err) {
