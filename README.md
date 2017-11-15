@@ -19,6 +19,10 @@ $ make && make install
 
 # List of applets
 
+## `i3status`
+
+My own variant of [`i3status`](https://i3wm.org/i3status/).
+
 ## `prettyprompt`
 
 This renders my shell prompt. Among other things, it identifies the current
