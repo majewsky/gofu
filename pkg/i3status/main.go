@@ -43,8 +43,8 @@ func Exec(args []string) int {
 		//prepare clock (this is inline instead of split into a separate function
 		//because the wallclock also drives the main loop's clock, see below)
 		now := time.Now()
-		currentBlocks["clock"] = section(
-			Block{
+		currentBlocks["clock"] = []Block{
+			{
 				Name:                "clock",
 				Instance:            "date",
 				Position:            PositionClock,
@@ -53,16 +53,17 @@ func Exec(args []string) int {
 				Color:               "#AAAAAA",
 				SeparatorBlockWidth: 6,
 			},
-			Block{
+			{
 				Name:     "clock",
 				Instance: "time",
 				Position: PositionClock,
 				FullText: now.Format("15:04:05"),
 			},
-		)
+		}
 
 		//prepare other blocks
 		currentBlocks["battery"] = getBatteryStatus()
+		currentBlocks["network"] = getNetworkStatus()
 
 		//put blocks in rendering order
 		var allBlocks []Block
@@ -116,6 +117,12 @@ func (b byPositionAndInstance) Len() int      { return len(b) }
 func (b byPositionAndInstance) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 func (b byPositionAndInstance) Less(i, j int) bool {
 	if b[i].Position == b[j].Position {
+		if b[i].Instance == "_caption" {
+			return true
+		}
+		if b[j].Instance == "_caption" {
+			return false
+		}
 		return b[i].Instance < b[j].Instance
 	}
 	return b[i].Position < b[j].Position
@@ -137,12 +144,13 @@ type Position int
 //Acceptable values for Position, from left to right.
 const (
 	PositionNone Position = iota
+	PositionNetwork
 	PositionBattery
 	PositionClock
 )
 
-//Order the given blocks byPositionAndInstance, then add a separator to the last one.
-func section(blocks ...Block) []Block {
+//Order the given blocks byPositionAndInstance, then add a separator to the last one, then add a caption block of the same style in front.
+func section(caption string, blocks ...Block) []Block {
 	if len(blocks) == 0 {
 		return nil
 	}
@@ -150,5 +158,12 @@ func section(blocks ...Block) []Block {
 	last := len(blocks) - 1
 	blocks[last].Separator = true
 	blocks[last].SeparatorBlockWidth = 15
-	return blocks
+
+	return append([]Block{{
+		Name:     blocks[0].Name,
+		Position: blocks[0].Position,
+		Instance: "_caption",
+		FullText: caption,
+		Color:    blocks[0].Color,
+	}}, blocks...)
 }

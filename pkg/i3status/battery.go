@@ -57,10 +57,10 @@ func getBatteryStatus() []Block {
 		color = "#AA0000"
 	}
 
-	return section(Block{
+	return section("bat", Block{
 		Name:     "battery",
 		Position: PositionBattery,
-		FullText: fmt.Sprintf("⚡ %d%%", energyPerc),
+		FullText: fmt.Sprintf("%d%%", energyPerc),
 		Urgent:   energyPerc < 10 && !charging,
 		Color:    color,
 	})
