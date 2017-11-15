@@ -43,22 +43,26 @@ func Exec(args []string) int {
 		//prepare clock (this is inline instead of split into a separate function
 		//because the wallclock also drives the main loop's clock, see below)
 		now := time.Now()
-		currentBlocks["clock"] = []Block{
-			{
-				Name:      "clock",
-				Instance:  "date",
-				Position:  PositionClock,
-				FullText:  now.Format("2006-01-02"),
-				ShortText: " ",
-				Color:     "#AAAAAA",
+		currentBlocks["clock"] = section(
+			Block{
+				Name:                "clock",
+				Instance:            "date",
+				Position:            PositionClock,
+				FullText:            now.Format("2006-01-02"),
+				ShortText:           " ",
+				Color:               "#AAAAAA",
+				SeparatorBlockWidth: 6,
 			},
-			{
+			Block{
 				Name:     "clock",
 				Instance: "time",
 				Position: PositionClock,
 				FullText: now.Format("15:04:05"),
 			},
-		}
+		)
+
+		//prepare other blocks
+		currentBlocks["battery"] = getBatteryStatus()
 
 		//put blocks in rendering order
 		var allBlocks []Block
@@ -133,5 +137,18 @@ type Position int
 //Acceptable values for Position, from left to right.
 const (
 	PositionNone Position = iota
+	PositionBattery
 	PositionClock
 )
+
+//Order the given blocks byPositionAndInstance, then add a separator to the last one.
+func section(blocks ...Block) []Block {
+	if len(blocks) == 0 {
+		return nil
+	}
+	sort.Sort(byPositionAndInstance(blocks))
+	last := len(blocks) - 1
+	blocks[last].Separator = true
+	blocks[last].SeparatorBlockWidth = 15
+	return blocks
+}
