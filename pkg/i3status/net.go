@@ -49,6 +49,9 @@ func getNetworkStatus() []Block {
 		addrStrs = append(addrStrs, str)
 	}
 
+	if len(addrStrs) == 0 {
+		return nil
+	}
 	return section("ip", Block{
 		Name:     "network",
 		Position: PositionNetwork,
