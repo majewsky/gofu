@@ -28,7 +28,7 @@ import (
 const (
 	batteryFullPath = "/sys/class/power_supply/BAT0/energy_full"
 	batteryNowPath  = "/sys/class/power_supply/BAT0/energy_now"
-	powerNowPath    = "/sys/class/power_supply/BAT0/power_now"
+	powerOnlinePath = "/sys/class/power_supply/AC0/online"
 )
 
 func getBatteryStatus() []Block {
@@ -43,13 +43,13 @@ func getBatteryStatus() []Block {
 	if err != nil {
 		return nil
 	}
-	powerNow, err := readNumberFromFile(powerNowPath)
+	powerOnline, err := readNumberFromFile(powerOnlinePath)
 	if err != nil {
 		return nil
 	}
 
 	energyPerc := energyNow * 100 / energyFull
-	charging := powerNow == 0 //i.e. when we're not drawing power from the battery
+	charging := powerOnline > 0
 	color := "#AAAA00"
 	if charging {
 		color = "#00AA00"
