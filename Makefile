@@ -14,8 +14,10 @@ build/gofu: FORCE
 $(addprefix build/,$(APPLETS)):
 	ln -s gofu $@
 
+# not using `install -D` here because macOS is stupid
 install: FORCE all
-	install -D -m 0755 build/gofu "$(DESTDIR)$(PREFIX)/bin/gofu"
+	install -d -m 0755 "$(DESTDIR)$(PREFIX)/bin"
+	install -m 0755 build/gofu "$(DESTDIR)$(PREFIX)/bin/gofu"
 	for APPLET in $(APPLETS); do ln -s gofu "$(DESTDIR)$(PREFIX)/bin/$${APPLET}"; done
 
 # which packages to test with static checkers?
