@@ -49,23 +49,25 @@ func Exec(args []string) int {
 	line := strings.Join(fields, " ")
 	lineWidth := getPrintableLength(line)
 
-	//add dashes to expand `line` to fill the terminal's width
-	termWidth, _, err := terminal.GetSize(0)
-	if err != nil {
-		termWidth = 80
-	}
-	if termWidth > lineWidth {
-		line += " "
-		lineWidth++
-	}
-	if termWidth > lineWidth {
-		dashes := make([]byte, termWidth-lineWidth)
-		for idx := range dashes {
-			dashes[idx] = '-'
+	// displayDashes := os.Getenv("PRETTYPROMPT_DASHES")
+	if os.Getenv("PRETTYPROMPT_DASHES") != "false" {
+		//add dashes to expand `line` to fill the terminal's width
+		termWidth, _, err := terminal.GetSize(0)
+		if err != nil {
+			termWidth = 80
 		}
-		line += withColor("1", string(dashes))
+		if termWidth > lineWidth {
+			line += " "
+			lineWidth++
+		}
+		if termWidth > lineWidth {
+			dashes := make([]byte, termWidth-lineWidth)
+			for idx := range dashes {
+				dashes[idx] = '-'
+			}
+			line += withColor("1", string(dashes))
+		}
 	}
-
 	os.Stdout.Write([]byte(line + "\n"))
 
 	//print second line: a letter identifying the shell, and the final "$ ")
