@@ -93,28 +93,15 @@ func getRepoStatusField(repo *gitRepo) string {
 	refSpecDisplay := strings.TrimPrefix(refSpec, "refs/")
 	refSpecDisplay = strings.TrimPrefix(refSpecDisplay, "heads/")
 
-	//attempt to read packed-refs
-	bytes, err = ioutil.ReadFile(filepath.Join(repo.GitDir, "packed-refs"))
-	if err == nil {
-		for _, line := range strings.Split(string(bytes), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			fields := strings.Fields(line)
-			if len(fields) == 2 && fields[1] == refSpec {
-				return formatRepoStatusField(refSpecDisplay, fields[0])
-			}
-		}
-	}
-
-	//if reading packed-refs did not work or did not yield the commit ID, read
-	//file corresponding to refspec to find commit ID
+	//read file corresponding to refspec to find commit ID
 	bytes, err = ioutil.ReadFile(filepath.Join(repo.GitDir, refSpec))
 	commitID := strings.TrimSpace(string(bytes))
 	if err != nil {
 		if os.IsNotExist(err) {
-			commitID = withColor("37", "blank")
+			commitID = tryReadFromPackedRefs(repo, refSpec)
+			if commitID == "" {
+				commitID = withColor("37", "blank")
+			}
 		} else {
 			handleError(err)
 			commitID = withColor("1;41", "unknown")
@@ -122,6 +109,24 @@ func getRepoStatusField(repo *gitRepo) string {
 	}
 
 	return formatRepoStatusField(refSpecDisplay, commitID)
+}
+
+func tryReadFromPackedRefs(repo *gitRepo, refSpec string) string {
+	bytes, err := ioutil.ReadFile(filepath.Join(repo.GitDir, "packed-refs"))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(bytes), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[1] == refSpec {
+			return fields[0]
+		}
+	}
+	return ""
 }
 
 func formatRepoStatusField(refSpec, commitID string) string {
