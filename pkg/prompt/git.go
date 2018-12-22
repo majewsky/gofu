@@ -93,7 +93,23 @@ func getRepoStatusField(repo *gitRepo) string {
 	refSpecDisplay := strings.TrimPrefix(refSpec, "refs/")
 	refSpecDisplay = strings.TrimPrefix(refSpecDisplay, "heads/")
 
-	//read file corresponding to refspec to find commit
+	//attempt to read packed-refs
+	bytes, err = ioutil.ReadFile(filepath.Join(repo.GitDir, "packed-refs"))
+	if err == nil {
+		for _, line := range strings.Split(string(bytes), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			fields := strings.Fields(line)
+			if len(fields) == 2 && fields[1] == refSpec {
+				return formatRepoStatusField(refSpecDisplay, fields[0])
+			}
+		}
+	}
+
+	//if reading packed-refs did not work or did not yield the commit ID, read
+	//file corresponding to refspec to find commit ID
 	bytes, err = ioutil.ReadFile(filepath.Join(repo.GitDir, refSpec))
 	commitID := strings.TrimSpace(string(bytes))
 	if err != nil {
