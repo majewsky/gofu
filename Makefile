@@ -24,11 +24,11 @@ install: FORCE all
 	for APPLET in $(APPLETS); do ln -s gofu "$(DESTDIR)$(PREFIX)/bin/$${APPLET}"; done
 
 # which packages to test with static checkers?
-GO_ALLPKGS := $(PKG) $(shell go list $(PKG)/pkg/...)
+GO_ALLPKGS := $(PKG) $(shell $(GO) list $(PKG)/pkg/...)
 # which packages to test with `go test`?
-GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/pkg/...)
+GO_TESTPKGS := $(shell $(GO) list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/pkg/...)
 # which packages to measure coverage for?
-GO_COVERPKGS := $(shell go list $(PKG)/pkg/...)
+GO_COVERPKGS := $(shell $(GO) list $(PKG)/pkg/...)
 # output files from `go test`
 GO_COVERFILES := $(patsubst %,build/%.cover.out,$(subst /,_,$(GO_TESTPKGS)))
 
