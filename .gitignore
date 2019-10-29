@@ -1,3 +1,2 @@
 build/
-.golangvend-cache/
 .gopath/pkg/

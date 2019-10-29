@@ -5,6 +5,9 @@ APPLETS = i3status rtree prettyprompt
 
 all: build/gofu $(addprefix build/,$(APPLETS))
 
+# NOTE: This repo uses Go modules, and uses a synthetic GOPATH at
+# $(CURDIR)/.gopath that is only used for the build cache. $GOPATH/src/ is
+# empty.
 GO            = GOPATH=$(CURDIR)/.gopath GOBIN=$(CURDIR)/build go
 GO_BUILDFLAGS =
 GO_LDFLAGS    = -s -w
@@ -48,6 +51,7 @@ build/cover.html: build/cover.out
 	$(GO) tool cover -html $< -o $@
 
 vendor: FORCE
-	golangvend
+	$(GO) mod tidy
+	$(GO) mod vendor
 
 .PHONY: FORCE
