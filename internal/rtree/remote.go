@@ -49,6 +49,25 @@ func ExpandRemoteURL(remoteURL string) string {
 	return best.Replacement + strings.TrimPrefix(remoteURL, best.Alias)
 }
 
+//ContractRemoteURL takes the canonical URL for a given remote and shortens it
+//as much as possible by substituting an alias from the system-wide and
+//user-global Git config. This function is pretty much the reverse of
+//ExpandRemoteURL().
+func ContractRemoteURL(remoteURL string) string {
+	var best *RemoteAlias
+	for _, current := range RemoteAliases {
+		if strings.HasPrefix(remoteURL, current.Replacement) {
+			if best == nil || len(best.Replacement) < len(current.Replacement) {
+				best = current
+			}
+		}
+	}
+	if best == nil {
+		return remoteURL
+	}
+	return best.Alias + strings.TrimPrefix(remoteURL, best.Replacement)
+}
+
 //This regex recognizes the scp-like syntax for git remotes
 //(i.e. "[user@]example.org:path/to/repo") as specified by the "GIT URLS"
 //section of man:git-clone(1).
