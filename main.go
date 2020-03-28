@@ -23,9 +23,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/majewsky/gofu/pkg/i3status"
-	"github.com/majewsky/gofu/pkg/prompt"
-	"github.com/majewsky/gofu/pkg/rtree"
+	"github.com/majewsky/gofu/internal/i3status"
+	"github.com/majewsky/gofu/internal/prompt"
+	"github.com/majewsky/gofu/internal/rtree"
 )
 
 func main() {

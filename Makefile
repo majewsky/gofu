@@ -24,11 +24,11 @@ install: FORCE all
 	for APPLET in $(APPLETS); do ln -s gofu "$(DESTDIR)$(PREFIX)/bin/$${APPLET}"; done
 
 # which packages to test with static checkers?
-GO_ALLPKGS := $(PKG) $(shell $(GO) list $(PKG)/pkg/...)
+GO_ALLPKGS := $(PKG) $(shell $(GO) list $(PKG)/internal/...)
 # which packages to test with `go test`?
-GO_TESTPKGS := $(shell $(GO) list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/pkg/...)
+GO_TESTPKGS := $(shell $(GO) list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/internal/...)
 # which packages to measure coverage for?
-GO_COVERPKGS := $(shell $(GO) list $(PKG)/pkg/...)
+GO_COVERPKGS := $(shell $(GO) list $(PKG)/internal/...)
 # output files from `go test`
 GO_COVERFILES := $(patsubst %,build/%.cover.out,$(subst /,_,$(GO_TESTPKGS)))
 
@@ -40,8 +40,8 @@ comma := ,
 check: all static-check build/cover.html FORCE
 	@echo -e "\e[1;32m>> All tests successful.\e[0m"
 static-check: FORCE
-	@if s="$$(gofmt -s -l *.go pkg 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
-	@if s="$$(golint . && find pkg -type d -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
+	@if s="$$(gofmt -s -l *.go internal 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
+	@if s="$$(golint . && find internal -type d -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
 	$(GO) vet $(GO_ALLPKGS)
 build/%.cover.out: FORCE
 	$(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(subst _,/,$*)

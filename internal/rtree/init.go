@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/majewsky/gofu/pkg/cli"
+	"github.com/majewsky/gofu/internal/cli"
 )
 
 //RemoteAlias describes an alias that can be used in a Git remote URL (as

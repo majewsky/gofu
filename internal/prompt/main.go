@@ -25,7 +25,7 @@ import (
 
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/majewsky/gofu/pkg/cli"
+	"github.com/majewsky/gofu/internal/cli"
 )
 
 //Exec executes the prettyprompt applet and returns an exit code (0 for

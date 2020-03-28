@@ -30,7 +30,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/majewsky/gofu/pkg/cli"
+	"github.com/majewsky/gofu/internal/cli"
 	yaml "gopkg.in/yaml.v2"
 )
 
