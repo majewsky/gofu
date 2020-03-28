@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/majewsky/gofu/internal/i3status"
 	"github.com/majewsky/gofu/internal/prompt"
 	"github.com/majewsky/gofu/internal/rtree"
 )
@@ -47,8 +46,6 @@ func execApplet(applet string, args []string, allowGofu bool) int {
 		return prompt.Exec(args)
 	case "rtree":
 		return rtree.Exec(args)
-	case "i3status":
-		return i3status.Exec(args)
 	default:
 		fmt.Fprintln(os.Stderr, "ERROR: unknown applet: "+applet)
 		return 255

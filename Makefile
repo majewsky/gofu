@@ -1,7 +1,7 @@
 PKG    = github.com/majewsky/gofu
 PREFIX = /usr
 
-APPLETS = i3status rtree prettyprompt
+APPLETS = rtree prettyprompt
 
 all: build/gofu $(addprefix build/,$(APPLETS))
 
