@@ -125,10 +125,20 @@ func commandDrop(index *Index, url string) error {
 }
 
 func commandIndex(index *Index) error {
+	//rebuild index (may delete index entries or restore repos from index entries)
 	err := index.Rebuild()
 	if err != nil {
 		return err
 	}
+
+	//shorten all actually-installed remote URLs into their compact forms
+	for _, repo := range index.Repos {
+		err := repo.ReformatRemoteURLs()
+		if err != nil {
+			return err
+		}
+	}
+
 	return index.Write()
 }
 

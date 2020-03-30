@@ -223,3 +223,18 @@ func (r *Repo) Move(checkoutPath string, makeSymlink bool) error {
 	}
 	return nil
 }
+
+//ReformatRemoteURLs rewrites the remote URLs in this repo's .git/config into
+//their compact forms.
+func (r Repo) ReformatRemoteURLs() error {
+	for _, remote := range r.Remotes {
+		err := cli.Interface.Run(cli.Command{
+			Program: []string{"git", "remote", "set-url", remote.Name, remote.URL.CompactURL()},
+			WorkDir: r.AbsolutePath(),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
