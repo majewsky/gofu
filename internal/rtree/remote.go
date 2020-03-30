@@ -25,47 +25,55 @@ import (
 	"strings"
 )
 
-//ExpandRemoteURL derive the canonical URL for a given remote by substituting
-//aliases defined in the system-wide and user-global Git config. For example,
-//with
+//RemoteURL is the URL of a remote of a Git repository.
+type RemoteURL string
+
+//ParseRemoteURL parses the given remote URL by substituting aliases defined in
+//the system-wide and user-global Git config. For example, with
 //
 //    $ cat /etc/gitconfig
 //    [url "git://github.com/"]
 //    insteadOf = gh:
 //
-//and the input "gh:foo/bar", this function returns "git://github.com/foo/bar".
-func ExpandRemoteURL(remoteURL string) string {
+//and the input "gh:foo/bar", the result has a canonical URL of
+//"git://github.com/foo/bar".
+func ParseRemoteURL(input string) RemoteURL {
 	var best *RemoteAlias
 	for _, current := range RemoteAliases {
-		if strings.HasPrefix(remoteURL, current.Alias) {
+		if strings.HasPrefix(input, current.Alias) {
 			if best == nil || len(best.Alias) < len(current.Alias) {
 				best = current
 			}
 		}
 	}
 	if best == nil {
-		return remoteURL
+		return RemoteURL(input)
 	}
-	return best.Replacement + strings.TrimPrefix(remoteURL, best.Alias)
+	return RemoteURL(best.Replacement + strings.TrimPrefix(input, best.Alias))
 }
 
-//ContractRemoteURL takes the canonical URL for a given remote and shortens it
-//as much as possible by substituting an alias from the system-wide and
-//user-global Git config. This function is pretty much the reverse of
-//ExpandRemoteURL().
-func ContractRemoteURL(remoteURL string) string {
+//CanonicalURL returns the URL where the remote will be fetched from.
+func (u RemoteURL) CanonicalURL() string {
+	return string(u)
+}
+
+//CompactURL returns the most compact representation of this remote URL,
+//obtained by substituting the longest matching alias defined in the
+//system-wide or user-global Git config. This function is mostly the reverse of
+//ParseRemoteURL().
+func (u RemoteURL) CompactURL() string {
 	var best *RemoteAlias
 	for _, current := range RemoteAliases {
-		if strings.HasPrefix(remoteURL, current.Replacement) {
+		if strings.HasPrefix(string(u), current.Replacement) {
 			if best == nil || len(best.Replacement) < len(current.Replacement) {
 				best = current
 			}
 		}
 	}
 	if best == nil {
-		return remoteURL
+		return string(u)
 	}
-	return best.Alias + strings.TrimPrefix(remoteURL, best.Replacement)
+	return best.Alias + strings.TrimPrefix(string(u), best.Replacement)
 }
 
 //This regex recognizes the scp-like syntax for git remotes
@@ -73,22 +81,37 @@ func ContractRemoteURL(remoteURL string) string {
 //section of man:git-clone(1).
 var scpSyntaxRx = regexp.MustCompile(`^(?:[^/@:]+@)?([^/:]+\.[^/:]+):(.+)$`)
 
-//CheckoutPathForRemoteURL derives the checkout path for a remote URL that has
-//already been expanded with ExpandRemoteURL() if necessary.
+//CheckoutPath derives the checkout path for a remote URL.
 //
-//  "https://example.org/foo/bar" -> "example.org/foo/bar"
-//  "git@example.org:foo/bar"     -> "example.org/foo/bar"
+//    RemoteURL("https://example.org/foo/bar") -> "example.org/foo/bar"
+//    RemoteURL("git@example.org:foo/bar")     -> "example.org/foo/bar"
 //
-func CheckoutPathForRemoteURL(remoteURL string) (string, error) {
-	match := scpSyntaxRx.FindStringSubmatch(remoteURL)
+func (u RemoteURL) CheckoutPath() (string, error) {
+	match := scpSyntaxRx.FindStringSubmatch(u.CanonicalURL())
 	if match != nil {
 		//match[1] is the hostname, match[2] is the path to the repo
 		return filepath.Join(match[1], match[2]), nil
 	}
 
-	u, err := url.Parse(remoteURL)
+	parsed, err := url.Parse(u.CanonicalURL())
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(u.Hostname(), u.Path), nil
+	return filepath.Join(parsed.Hostname(), parsed.Path), nil
+}
+
+//MarshalYAML implements the yaml.Marshaler interface.
+func (u RemoteURL) MarshalYAML() (interface{}, error) {
+	//store URLs in the index in the compact format
+	return u.CompactURL(), nil
+}
+
+//UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (u *RemoteURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	err := unmarshal(&s)
+	if err == nil {
+		*u = ParseRemoteURL(s)
+	}
+	return err
 }

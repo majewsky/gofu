@@ -40,8 +40,8 @@ type Repo struct {
 
 //Remote describes a remote that is configured in a Repo.
 type Remote struct {
-	Name string `yaml:"name"`
-	URL  string `yaml:"url"`
+	Name string    `yaml:"name"`
+	URL  RemoteURL `yaml:"url"`
 }
 
 //AbsolutePath returns the absolute CheckoutPath of this repo.
@@ -73,7 +73,7 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 		}
 		repo.Remotes = append(repo.Remotes, Remote{
 			Name: match[1],
-			URL:  match[2],
+			URL:  ParseRemoteURL(match[2]),
 		})
 	}
 	return
@@ -81,8 +81,8 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 
 //NewRepoFromRemoteURL initializes a Repo instance for checking out a remote
 //for the first time. The checkout does not happen until Checkout() is called.
-func NewRepoFromRemoteURL(remoteURL string) (Repo, error) {
-	checkoutPath, err := CheckoutPathForRemoteURL(ExpandRemoteURL(remoteURL))
+func NewRepoFromRemoteURL(remoteURL RemoteURL) (Repo, error) {
+	checkoutPath, err := remoteURL.CheckoutPath()
 	return Repo{
 		CheckoutPath: checkoutPath,
 		Remotes: []Remote{
@@ -130,7 +130,7 @@ func ForeachPhysicalRepo(action func(repo Repo) error) error {
 //working copy will only be initialized if there is an "origin" remote.
 func (r Repo) Checkout() error {
 	//check if we have an "origin" remote to clone from
-	var originURL string
+	var originURL RemoteURL
 	for _, remote := range r.Remotes {
 		if remote.Name == "origin" {
 			originURL = remote.URL
@@ -148,7 +148,7 @@ func (r Repo) Checkout() error {
 		cli.Interface.ShowWarning(`will not checkout anything since there is no remote named "origin"`)
 	} else {
 		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "clone", originURL, r.AbsolutePath()},
+			Program: []string{"git", "clone", originURL.CompactURL(), r.AbsolutePath()},
 		})
 		if err != nil {
 			return err
@@ -159,7 +159,7 @@ func (r Repo) Checkout() error {
 	for _, remote := range r.Remotes {
 		if remote.Name != "origin" {
 			err := cli.Interface.Run(cli.Command{
-				Program: []string{"git", "remote", "add", remote.Name, remote.URL},
+				Program: []string{"git", "remote", "add", remote.Name, remote.URL.CompactURL()},
 				WorkDir: r.AbsolutePath(),
 			})
 			if err != nil {

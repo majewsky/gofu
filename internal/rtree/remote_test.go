@@ -28,7 +28,7 @@ var remoteAliasesForExpansionTest = []*RemoteAlias{
 	{Alias: "test:", Replacement: "test:test:"},
 }
 
-var testExpansions = map[string]string{
+var testExpansions = map[string]RemoteURL{
 	"gh:foo/bar":                 "https://github.com/foo/bar",
 	"gh:f:bar":                   "https://github.com/foo/bar",
 	"gh:b:foo":                   "https://github.com/bar/foo",
@@ -37,10 +37,10 @@ var testExpansions = map[string]string{
 	"https://github.com/foo/bar": "https://github.com/foo/bar",    //no expansion at all
 }
 
-func TestExpandRemoteURL(t *testing.T) {
+func TestParseRemoteURL(t *testing.T) {
 	RemoteAliases = remoteAliasesForExpansionTest
 	for input, expected := range testExpansions {
-		actual := ExpandRemoteURL(input)
+		actual := ParseRemoteURL(input)
 		if actual != expected {
 			t.Errorf("expected %q to expand into %q, but got %q", input, expected, actual)
 		}
@@ -48,7 +48,7 @@ func TestExpandRemoteURL(t *testing.T) {
 }
 
 //Most of those are just reversed from `testExpansions`.
-var testContractions = map[string]string{
+var testContractions = map[RemoteURL]string{
 	"https://github.com/foo/bar":      "gh:f:bar",
 	"https://github.com/bar/foo":      "gh:b:foo",
 	"https://github.com/qux/foobar":   "gh:qux/foobar",
@@ -57,10 +57,10 @@ var testContractions = map[string]string{
 	"git://somewhereelse.com/foo/bar": "git://somewhereelse.com/foo/bar",
 }
 
-func TestContractRemoteURL(t *testing.T) {
+func TestCompactRemoteURL(t *testing.T) {
 	RemoteAliases = remoteAliasesForExpansionTest
 	for input, expected := range testContractions {
-		actual := ContractRemoteURL(input)
+		actual := input.CompactURL()
 		if actual != expected {
 			t.Errorf("expected %q to contract into %q, but got %q", input, expected, actual)
 		}

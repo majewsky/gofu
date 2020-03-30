@@ -144,7 +144,7 @@ func commandRemotes(index *Index) {
 	var items []string
 	for _, repo := range index.Repos {
 		for _, remote := range repo.Remotes {
-			items = append(items, remote.URL)
+			items = append(items, remote.URL.CompactURL())
 		}
 	}
 	cli.Interface.ShowResultsSorted(items)

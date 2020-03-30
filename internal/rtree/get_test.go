@@ -60,24 +60,27 @@ func TestGetExistingRepoWithoutShortcut(t *testing.T) {
 func TestGetNewRepo(t *testing.T) {
 	target := filepath.Join(RootPath, "/github.com/another/repo")
 
-	Test{
-		Args:            []string{"get", "gh:another/repo"},
-		Index:           testIndexWithTwoRepos,
-		ExpectOutput:    target + "\n",
-		ExpectExecution: Recorded("git clone gh:another/repo " + target),
-		ExpectIndex: &Index{
-			Repos: []*Repo{
-				{
-					CheckoutPath: "github.com/another/repo",
-					Remotes: []Remote{
-						{Name: "origin", URL: "gh:another/repo"},
+	for _, remoteURL := range []string{"gh:another/repo", "https://github.com/another/repo"} {
+		Test{
+			Args:            []string{"get", remoteURL},
+			Index:           testIndexWithTwoRepos,
+			ExpectOutput:    target + "\n",
+			ExpectExecution: Recorded("git clone gh:another/repo " + target),
+			ExpectIndex: &Index{
+				Repos: []*Repo{
+					{
+						CheckoutPath: "github.com/another/repo",
+						Remotes: []Remote{
+							//regardless of the remote URL used, we expect the contracted form to be used
+							{Name: "origin", URL: "gh:another/repo"},
+						},
 					},
+					testIndexWithTwoRepos.Repos[0],
+					testIndexWithTwoRepos.Repos[1],
 				},
-				testIndexWithTwoRepos.Repos[0],
-				testIndexWithTwoRepos.Repos[1],
 			},
-		},
-	}.Run(t)
+		}.Run(t)
+	}
 }
 
 func TestGetNewForkAsRemote(t *testing.T) {

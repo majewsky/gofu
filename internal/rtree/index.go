@@ -146,10 +146,10 @@ func (i *Index) Rebuild() error {
 		var remoteURLs []string
 		for _, remote := range repo.Remotes {
 			if remote.Name == "origin" {
-				remoteURLs = []string{remote.URL}
+				remoteURLs = []string{remote.URL.CompactURL()}
 				break
 			}
-			remoteURLs = append(remoteURLs, remote.URL)
+			remoteURLs = append(remoteURLs, remote.URL.CompactURL())
 		}
 
 		var selection string
@@ -212,12 +212,12 @@ func (i *Index) Rebuild() error {
 //FindRepo locates the repo with the given remote if it exists on disk or (if
 //allowClone is set) clones it and adds it to the index. This is the meat of
 //`rtree get`, and is also used by `rtree drop`.
-func (i *Index) FindRepo(remoteURL string, allowClone bool) (*Repo, error) {
+func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 	//make sure that stdout is not used for prompts
 	cli.Interface.StdoutProtected = true
 
-	expandedRemoteURL := ExpandRemoteURL(remoteURL)
-	basename := path.Base(expandedRemoteURL)
+	remoteURL := ParseRemoteURL(rawRemoteURL)
+	basename := path.Base(remoteURL.CanonicalURL())
 
 	//is this remote already checked out directly? also look for repos with the
 	//same basename that could be forks
@@ -225,11 +225,10 @@ func (i *Index) FindRepo(remoteURL string, allowClone bool) (*Repo, error) {
 	for _, repo := range i.Repos {
 		isCandidate := false
 		for _, remote := range repo.Remotes {
-			otherExpandedRemoteURL := ExpandRemoteURL(remote.URL)
-			if expandedRemoteURL == otherExpandedRemoteURL {
+			if remoteURL == remote.URL {
 				return repo, nil
 			}
-			if basename == path.Base(otherExpandedRemoteURL) {
+			if basename == path.Base(remote.URL.CanonicalURL()) {
 				isCandidate = true
 			}
 		}
@@ -310,7 +309,7 @@ func (i *Index) FindRepo(remoteURL string, allowClone bool) (*Repo, error) {
 	//report the existing remotes, and ask for the name of the new remote
 	prompt := "Existing remotes:\n"
 	for _, remote := range target.Remotes {
-		prompt += fmt.Sprintf("\t(%s) %s\n", remote.Name, remote.URL)
+		prompt += fmt.Sprintf("\t(%s) %s\n", remote.Name, remote.URL.CompactURL())
 	}
 	prompt += fmt.Sprintf("Enter remote name for %s:", remoteURL)
 	remoteName, err := cli.Interface.ReadLine(prompt)
@@ -319,7 +318,7 @@ func (i *Index) FindRepo(remoteURL string, allowClone bool) (*Repo, error) {
 	}
 
 	err = cli.Interface.Run(cli.Command{
-		Program: []string{"git", "remote", "add", remoteName, remoteURL},
+		Program: []string{"git", "remote", "add", remoteName, remoteURL.CompactURL()},
 		WorkDir: target.AbsolutePath(),
 	})
 	if err != nil {
@@ -363,7 +362,7 @@ func (i *Index) ImportRepo(dirPath string) error {
 	choices := make([]cli.Choice, len(repo.Remotes))
 	var checkoutPath string
 	for idx, remote := range repo.Remotes {
-		thisPath, err := CheckoutPathForRemoteURL(ExpandRemoteURL(remote.URL))
+		thisPath, err := remote.URL.CheckoutPath()
 		if err != nil {
 			return err
 		}
