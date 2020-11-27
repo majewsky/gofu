@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2017 Stefan Majewsky <majewsky@gmx.net>
+* Copyright 2017-2020 Stefan Majewsky <majewsky@gmx.net>
 *
 * This program is free software: you can redistribute it and/or modify it under
 * the terms of the GNU General Public License as published by the Free Software
@@ -21,6 +21,7 @@ package prompt
 import (
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -28,6 +29,11 @@ import (
 )
 
 func getKubernetesField() string {
+	_, err := os.Stat("/x/bin/u8s")
+	if err == nil {
+		return getKubernetesFieldViaU8S()
+	}
+
 	configPaths := filepath.SplitList(os.Getenv("KUBECONFIG"))
 
 	var context string
@@ -72,6 +78,38 @@ func getKubernetesContext(configPath string) string {
 	err = yaml.Unmarshal(buf, &data)
 	handleError(err)
 	return strings.TrimSpace(data.CurrentContext)
+}
+
+func getKubernetesFieldViaU8S() string {
+	stdout, err := exec.Command("u8s", "env").Output()
+	if err != nil {
+		return ""
+	}
+
+	var (
+		context   string
+		namespace string
+	)
+	for _, line := range strings.Split(string(stdout), "\n") {
+		fields := strings.SplitN(strings.TrimSpace(line), "=", 2)
+		if len(fields) != 2 {
+			continue
+		}
+		switch fields[0] {
+		case "U8S_CONTEXT":
+			context = fields[1]
+		case "U8S_NAMESPACE":
+			namespace = fields[1]
+		}
+	}
+
+	if context == "" {
+		return ""
+	}
+	if namespace != "" {
+		context += "/" + namespace
+	}
+	return withType("kube", context)
 }
 
 func getOpenstackField() string {
