@@ -1,19 +1,15 @@
-PKG    = github.com/majewsky/gofu
-PREFIX = /usr
-
+PREFIX  = /usr
+DESTDIR =
 APPLETS = rtree prettyprompt
 
 all: build/gofu $(addprefix build/,$(APPLETS))
 
-# NOTE: This repo uses Go modules, and uses a synthetic GOPATH at
-# $(CURDIR)/.gopath that is only used for the build cache. $GOPATH/src/ is
-# empty.
-GO            = GOPATH=$(CURDIR)/.gopath GOBIN=$(CURDIR)/build go
-GO_BUILDFLAGS =
-GO_LDFLAGS    = -s -w
+GO_BUILDFLAGS = -mod vendor
+GO_LDFLAGS = 
+GO_TESTENV = 
 
 build/gofu: FORCE
-	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)'
+	go build $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -o build/gofu .
 $(addprefix build/,$(APPLETS)):
 	ln -s gofu $@
 
@@ -23,35 +19,41 @@ install: FORCE all
 	install -m 0755 build/gofu "$(DESTDIR)$(PREFIX)/bin/gofu"
 	for APPLET in $(APPLETS); do ln -s gofu "$(DESTDIR)$(PREFIX)/bin/$${APPLET}"; done
 
-# which packages to test with static checkers?
-GO_ALLPKGS := $(PKG) $(shell $(GO) list $(PKG)/internal/...)
-# which packages to test with `go test`?
-GO_TESTPKGS := $(shell $(GO) list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/internal/...)
-# which packages to measure coverage for?
-GO_COVERPKGS := $(shell $(GO) list $(PKG)/internal/...)
-# output files from `go test`
-GO_COVERFILES := $(patsubst %,build/%.cover.out,$(subst /,_,$(GO_TESTPKGS)))
-
-# down below, I need to substitute spaces with commas; because of the syntax,
-# I have to get these separators from variables
+# which packages to test with static checkers
+GO_ALLPKGS := $(shell go list ./...)
+# which files to test with static checkers (this contains a list of globs)
+GO_ALLFILES := $(addsuffix /*.go,$(patsubst $(shell go list .),.,$(shell go list ./...)))
+# which packages to test with "go test"
+GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
+# which packages to measure coverage for
+GO_COVERPKGS := $(shell go list ./... | grep -Ev '/plugins')
+# to get around weird Makefile syntax restrictions, we need variables containing a space and comma
 space := $(null) $(null)
 comma := ,
 
 check: all static-check build/cover.html FORCE
-	@echo -e "\e[1;32m>> All tests successful.\e[0m"
+	@printf "\e[1;32m>> All checks successful.\e[0m\n"
+
 static-check: FORCE
-	@if s="$$(gofmt -s -l *.go internal 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
-	@if s="$$(golint . && find internal -type d -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
-	$(GO) vet $(GO_ALLPKGS)
-build/%.cover.out: FORCE
-	$(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(subst _,/,$*)
-build/cover.out: $(GO_COVERFILES)
-	util/gocovcat.go $(GO_COVERFILES) > $@
+	@if ! hash golint 2>/dev/null; then printf "\e[1;36m>> Installing golint...\e[0m\n"; GO111MODULE=off go get -u golang.org/x/lint/golint; fi
+	@printf "\e[1;36m>> gofmt\e[0m\n"
+	@if s="$$(gofmt -s -d $(GO_ALLFILES) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
+	@printf "\e[1;36m>> golint\e[0m\n"
+	@if s="$$(golint $(GO_ALLPKGS) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
+	@printf "\e[1;36m>> go vet\e[0m\n"
+	@go vet $(GO_BUILDFLAGS) $(GO_ALLPKGS)
+
+build/cover.out: FORCE
+	@printf "\e[1;36m>> go test\e[0m\n"
+	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+
 build/cover.html: build/cover.out
-	$(GO) tool cover -html $< -o $@
+	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
+	@go tool cover -html $< -o $@
 
 vendor: FORCE
-	$(GO) mod tidy
-	$(GO) mod vendor
+	go mod tidy
+	go mod vendor
+	go mod verify
 
 .PHONY: FORCE
