@@ -114,8 +114,11 @@ func (dir *Directory) stripHomeDirFromDisplay() {
 		if dir.InBuildTree || dir.InRepoTree {
 			return
 		}
-		rel = ""
+		dir.DisplayPath = ""
+		dir.TitlePath = "~"
+		return
 	}
+
 	if !strings.HasPrefix(rel, "..") {
 		dir.DisplayPath = rel
 		dir.TitlePath = "~/" + rel
@@ -131,6 +134,7 @@ func findNearestAccessiblePath(path string) string {
 }
 
 func getDirectoryField(dir Directory, tt *TerminalTitle) string {
+	tt.Path = dir.TitlePath
 	if dir.DisplayPath == "" {
 		return ""
 	}
@@ -150,8 +154,6 @@ func getDirectoryField(dir Directory, tt *TerminalTitle) string {
 		rel, _ := filepath.Rel(dir.NearestAccessiblePath, dir.Path)
 		txt = withColor("1;36", dir.NearestAccessiblePath+"/") + withColor("1;31", rel)
 	}
-
-	tt.Path = dir.TitlePath
 
 	//apply tags
 	if dir.InRepoTree {
