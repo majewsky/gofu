@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2017-2020 Stefan Majewsky <majewsky@gmx.net>
+* Copyright 2017 Stefan Majewsky <majewsky@gmx.net>
 *
 * This program is free software: you can redistribute it and/or modify it under
 * the terms of the GNU General Public License as published by the Free Software
@@ -55,11 +55,8 @@ func getKubernetesField() string {
 		}
 		namespace = ""
 	}
-	if namespace != "" {
-		context += "/" + namespace
-	}
 
-	return withType("kube", context)
+	return buildKubernetesField(context, namespace)
 }
 
 func getKubernetesContext(configPath string) string {
@@ -102,9 +99,16 @@ func getKubernetesFieldViaU8S() string {
 			namespace = fields[1]
 		}
 	}
+	return buildKubernetesField(context, namespace)
+}
 
+func buildKubernetesField(context, namespace string) string {
 	if context == "" {
 		return ""
+	}
+	if !strings.HasPrefix(context, "qa") {
+		//visual warning when working in a productive region
+		context = withColor("1;41", context)
 	}
 	if namespace != "" {
 		context += "/" + namespace
