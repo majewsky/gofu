@@ -25,7 +25,7 @@ import "os"
 //#include <unistd.h>
 import "C"
 
-func getLoginField() string {
+func getLoginField(tt *TerminalTitle) string {
 	var result string
 
 	//show user name
@@ -45,6 +45,7 @@ func getLoginField() string {
 		handleError(err)
 		hostname = "<unknown>"
 	}
+	tt.HostName = hostname
 	return result + withColor(
 		getenvOrDefault("PRETTYPROMPT_HOSTCOLOR", "0;33"),
 		hostname,

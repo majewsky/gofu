@@ -27,7 +27,8 @@ import (
 //Directory contains all data about a directory that the prompt needs.
 type Directory struct {
 	Path                  string
-	DisplayPath           string
+	DisplayPath           string //formatted for display in prompt line
+	TitlePath             string //formatted for display in TerminalTitle
 	InBuildTree           bool
 	InRepoTree            bool
 	Repo                  *gitRepo
@@ -74,6 +75,10 @@ func NewDirectory(path string) (dir Directory) {
 			}
 		}
 
+		//terminal title has the same path truncations as above, but differs from
+		//this point
+		dir.TitlePath = dir.DisplayPath
+
 		//strip $HOME prefix if applicable and desirable
 		dir.stripHomeDirFromDisplay()
 
@@ -81,6 +86,12 @@ func NewDirectory(path string) (dir Directory) {
 		var err error
 		dir.Repo, err = findRepo(dir.Path)
 		handleError(err)
+
+		//inside a repository, terminal title only shows the repo directory and
+		//below (e.g. "gofu/internal/prompt" for the current directory)
+		if dir.Repo != nil {
+			dir.TitlePath, _ = filepath.Rel(filepath.Dir(dir.Repo.RootPath), dir.Path)
+		}
 	}
 
 	return
@@ -107,6 +118,7 @@ func (dir *Directory) stripHomeDirFromDisplay() {
 	}
 	if !strings.HasPrefix(rel, "..") {
 		dir.DisplayPath = rel
+		dir.TitlePath = "~/" + rel
 	}
 }
 
@@ -118,7 +130,7 @@ func findNearestAccessiblePath(path string) string {
 	return findNearestAccessiblePath(filepath.Dir(path))
 }
 
-func getDirectoryField(dir Directory) string {
+func getDirectoryField(dir Directory, tt *TerminalTitle) string {
 	if dir.DisplayPath == "" {
 		return ""
 	}
@@ -139,12 +151,15 @@ func getDirectoryField(dir Directory) string {
 		txt = withColor("1;36", dir.NearestAccessiblePath+"/") + withColor("1;31", rel)
 	}
 
+	tt.Path = dir.TitlePath
+
 	//apply tags
 	if dir.InRepoTree {
 		txt = withType("repo", txt)
 	}
 	if dir.InBuildTree {
 		txt = withType("build", txt)
+		tt.Path = "build:" + tt.Path
 	}
 	return txt
 }

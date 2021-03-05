@@ -31,11 +31,12 @@ import (
 //Exec executes the prettyprompt applet and returns an exit code (0 for
 //success, >0 for error).
 func Exec(args []string) int {
+	var tt TerminalTitle
 	fields := []string{
-		getLoginField(),
+		getLoginField(&tt),
 	}
 	cwd := CurrentDirectory()
-	fields = appendUnlessEmpty(fields, getDirectoryField(cwd))
+	fields = appendUnlessEmpty(fields, getDirectoryField(cwd, &tt))
 	fields = appendUnlessEmpty(fields, getDeletedMessageField(cwd))
 	fields = appendUnlessEmpty(fields, getRepoStatusField(cwd.Repo))
 	fields = appendUnlessEmpty(fields, getTerminalField())
@@ -77,6 +78,8 @@ func Exec(args []string) int {
 		shellIdent = "B"
 	}
 	os.Stdout.Write([]byte(shellIdent + "$ "))
+
+	tt.PrintTo(os.Stdout)
 
 	return 0
 }
