@@ -47,6 +47,10 @@ func Exec(args []string) int {
 		fields = appendUnlessEmpty(fields, getExitCodeField(args[0]))
 	}
 
+	//print terminal title first, otherwise it confuses zsh's line length
+	//computation and makes it misplace UI elements
+	tt.PrintTo(os.Stdout)
+
 	line := strings.Join(fields, " ")
 	lineWidth := getPrintableLength(line)
 
@@ -78,8 +82,6 @@ func Exec(args []string) int {
 		shellIdent = "B"
 	}
 	os.Stdout.Write([]byte(shellIdent + "$ "))
-
-	tt.PrintTo(os.Stdout)
 
 	return 0
 }
