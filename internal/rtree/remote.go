@@ -87,7 +87,8 @@ var scpSyntaxRx = regexp.MustCompile(`^(?:[^/@:]+@)?([^/:]+\.[^/:]+):(.+)$`)
 //    RemoteURL("git@example.org:foo/bar")     -> "example.org/foo/bar"
 //
 func (u RemoteURL) CheckoutPath() (string, error) {
-	match := scpSyntaxRx.FindStringSubmatch(u.CanonicalURL())
+	stripped := strings.TrimSuffix(u.CanonicalURL(), ".git")
+	match := scpSyntaxRx.FindStringSubmatch(stripped)
 	if match != nil {
 		//match[1] is the hostname, match[2] is the path to the repo
 		return filepath.Join(match[1], match[2]), nil
