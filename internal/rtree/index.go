@@ -132,12 +132,14 @@ func (i *Index) Rebuild() error {
 		fi, err := os.Stat(gitDirPath)
 		switch {
 		case err == nil:
-			if fi.IsDir() {
+			// in a normal repo .git is a directory but when the repo is a submodule of another repo
+			// and the .git dir is absorbed then it is a file which contains the path to the real .git directory
+			if fi.IsDir() || fi.Mode().IsRegular() {
 				//everything okay with this repo
 				newRepos = append(newRepos, repo)
 				continue
 			}
-			return fmt.Errorf("expected repository at %s, but is not a directory", gitDirPath)
+			return fmt.Errorf("expected repository at %s, but is not a directory or file", gitDirPath)
 		case !os.IsNotExist(err):
 			return err
 		}
