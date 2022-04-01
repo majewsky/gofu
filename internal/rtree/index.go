@@ -128,8 +128,7 @@ func (i *Index) Rebuild() error {
 	//check if existing index entries are still checked out
 	var newRepos []*Repo
 	for _, repo := range i.Repos {
-		gitDirPath := filepath.Join(repo.AbsolutePath(), ".git")
-		fi, err := os.Stat(gitDirPath)
+		fi, err := os.Stat(repo.GitDirPath())
 		switch {
 		case err == nil:
 			// in a normal repo .git is a directory but when the repo is a submodule of another repo
@@ -139,7 +138,7 @@ func (i *Index) Rebuild() error {
 				newRepos = append(newRepos, repo)
 				continue
 			}
-			return fmt.Errorf("expected repository at %s, but is not a directory or file", gitDirPath)
+			return fmt.Errorf("expected repository at %s, but is not a directory or file", repo.GitDirPath())
 		case !os.IsNotExist(err):
 			return err
 		}

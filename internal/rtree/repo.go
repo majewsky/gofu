@@ -49,6 +49,11 @@ func (r Repo) AbsolutePath() string {
 	return filepath.Join(RootPath, r.CheckoutPath)
 }
 
+//GitDirPath returns the path of the .git directory of this repo.
+func (r Repo) GitDirPath() string {
+	return filepath.Join(r.AbsolutePath(), ".git")
+}
+
 //NewRepoFromAbsolutePath initializes a Repo instance by scanning the existing
 //checkout at the given path.
 func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
