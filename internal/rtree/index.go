@@ -128,8 +128,7 @@ func (i *Index) Rebuild() error {
 	//check if existing index entries are still checked out
 	var newRepos []*Repo
 	for _, repo := range i.Repos {
-		gitDirPath := filepath.Join(repo.AbsolutePath(), ".git")
-		fi, err := os.Stat(gitDirPath)
+		fi, err := os.Stat(repo.GitDirPath())
 		switch {
 		case err == nil:
 			// in a normal repo .git is a directory but when the repo is a submodule of another repo
@@ -139,7 +138,7 @@ func (i *Index) Rebuild() error {
 				newRepos = append(newRepos, repo)
 				continue
 			}
-			return fmt.Errorf("expected repository at %s, but is not a directory or file", gitDirPath)
+			return fmt.Errorf("expected repository at %s, but is not a directory or file", repo.GitDirPath())
 		case !os.IsNotExist(err):
 			return err
 		}
@@ -227,7 +226,8 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 	for _, repo := range i.Repos {
 		isCandidate := false
 		for _, remote := range repo.Remotes {
-			if remoteURL == remote.URL {
+			// be flexible about .git ending in remote
+			if remoteURL == remote.URL || remoteURL+".git" == remote.URL || remoteURL == remote.URL+".git" {
 				return repo, nil
 			}
 			if basename == path.Base(remote.URL.CanonicalURL()) {
