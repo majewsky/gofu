@@ -226,7 +226,8 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 	for _, repo := range i.Repos {
 		isCandidate := false
 		for _, remote := range repo.Remotes {
-			if remoteURL == remote.URL {
+			// be flexible about .git ending in remote
+			if remoteURL == remote.URL || remoteURL+".git" == remote.URL || remoteURL == remote.URL+".git" {
 				return repo, nil
 			}
 			if basename == path.Base(remote.URL.CanonicalURL()) {
