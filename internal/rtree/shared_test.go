@@ -34,7 +34,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-//Path to a directory where tests can put their index files.
+// Path to a directory where tests can put their index files.
 var indexTmpDir = filepath.Join(os.TempDir(), fmt.Sprintf("rtree-test-%d", os.Getpid()))
 
 func TestMain(m *testing.M) {
@@ -56,8 +56,8 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-//Test describes a call to Main(), the environment that's given to it, and the
-//assertions that are checked after the call returns.
+// Test describes a call to Main(), the environment that's given to it, and the
+// assertions that are checked after the call returns.
 type Test struct {
 	Args            []string
 	Input           string
@@ -137,11 +137,11 @@ type RecordedCommand struct {
 	Fails  bool
 }
 
-//Recorded is a shortcut function for initializing a []RecordedCommand. It
-//splits each line on whitespace to obtain the command line of that command,
-//and recognizes a leading "@/some/path" to set the workdir.
+// Recorded is a shortcut function for initializing a []RecordedCommand. It
+// splits each line on whitespace to obtain the command line of that command,
+// and recognizes a leading "@/some/path" to set the workdir.
 //
-//This function can only be used for RecordedCommands without output that do not fail.
+// This function can only be used for RecordedCommands without output that do not fail.
 func Recorded(lines ...string) (cs []RecordedCommand) {
 	cs = make([]RecordedCommand, len(lines))
 	for idx, line := range lines {
@@ -155,11 +155,11 @@ func Recorded(lines ...string) (cs []RecordedCommand) {
 	return
 }
 
-//CommandSimulator implements the cli.CommandRunner interface (via its Next
-//method). When a cli.Command is given to Next(), it is matched with the next
-//command in the .Cmd list, and the result from that RecordedCommand is
-//returned. If the given Command is different from the one expected (or if the
-//.Cmd list has been exhausted), an error is returned.
+// CommandSimulator implements the cli.CommandRunner interface (via its Next
+// method). When a cli.Command is given to Next(), it is matched with the next
+// command in the .Cmd list, and the result from that RecordedCommand is
+// returned. If the given Command is different from the one expected (or if the
+// .Cmd list has been exhausted), an error is returned.
 type CommandSimulator struct {
 	Cmd []RecordedCommand
 	idx int
