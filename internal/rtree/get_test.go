@@ -35,7 +35,7 @@ var testIndexWithTwoRepos = Index{
 		{
 			CheckoutPath: "github.com/git/git",
 			Remotes: []Remote{
-				{Name: "origin", URL: "gh:git/git"},
+				{Name: "origin", URL: "https://github.com/git/git"},
 			},
 		},
 	},
@@ -65,14 +65,14 @@ func TestGetNewRepo(t *testing.T) {
 			Args:            []string{"get", remoteURL},
 			Index:           testIndexWithTwoRepos,
 			ExpectOutput:    target + "\n",
-			ExpectExecution: Recorded("git clone gh:another/repo " + target),
+			ExpectExecution: Recorded("git clone https://github.com/another/repo " + target),
 			ExpectIndex: &Index{
 				Repos: []*Repo{
 					{
 						CheckoutPath: "github.com/another/repo",
 						Remotes: []Remote{
 							//regardless of the remote URL used, we expect the contracted form to be used
-							{Name: "origin", URL: "gh:another/repo"},
+							{Name: "origin", URL: "https://github.com/another/repo"},
 						},
 					},
 					testIndexWithTwoRepos.Repos[0],
@@ -106,7 +106,7 @@ func TestGetNewForkAsRemote(t *testing.T) {
 				{
 					CheckoutPath: "github.com/git/git",
 					Remotes: []Remote{
-						{Name: "origin", URL: "gh:git/git"},
+						{Name: "origin", URL: "https://github.com/git/git"},
 						{Name: "myfork", URL: "https://example.com/git"},
 					},
 				},

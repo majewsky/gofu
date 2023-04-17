@@ -104,7 +104,7 @@ func (u RemoteURL) CheckoutPath() (string, error) {
 // MarshalYAML implements the yaml.Marshaler interface.
 func (u RemoteURL) MarshalYAML() (interface{}, error) {
 	//store URLs in the index in the compact format
-	return u.CompactURL(), nil
+	return u.CanonicalURL(), nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.

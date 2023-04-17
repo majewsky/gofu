@@ -153,7 +153,7 @@ func (r Repo) Checkout() error {
 		cli.Interface.ShowWarning(`will not checkout anything since there is no remote named "origin"`)
 	} else {
 		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "clone", originURL.CompactURL(), r.AbsolutePath()},
+			Program: []string{"git", "clone", originURL.CanonicalURL(), r.AbsolutePath()},
 		})
 		if err != nil {
 			return err
@@ -164,7 +164,7 @@ func (r Repo) Checkout() error {
 	for _, remote := range r.Remotes {
 		if remote.Name != "origin" {
 			err := cli.Interface.Run(cli.Command{
-				Program: []string{"git", "remote", "add", remote.Name, remote.URL.CompactURL()},
+				Program: []string{"git", "remote", "add", remote.Name, remote.URL.CanonicalURL()},
 				WorkDir: r.AbsolutePath(),
 			})
 			if err != nil {
@@ -234,7 +234,7 @@ func (r *Repo) Move(checkoutPath string, makeSymlink bool) error {
 func (r Repo) ReformatRemoteURLs() error {
 	for _, remote := range r.Remotes {
 		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "remote", "set-url", remote.Name, remote.URL.CompactURL()},
+			Program: []string{"git", "remote", "set-url", remote.Name, remote.URL.CanonicalURL()},
 			WorkDir: r.AbsolutePath(),
 		})
 		if err != nil {
