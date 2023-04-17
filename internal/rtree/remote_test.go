@@ -47,7 +47,7 @@ func TestParseRemoteURL(t *testing.T) {
 	}
 }
 
-//Most of those are just reversed from `testExpansions`.
+// Most of those are just reversed from `testExpansions`.
 var testContractions = map[RemoteURL]string{
 	"https://github.com/foo/bar":      "gh:f:bar",
 	"https://github.com/bar/foo":      "gh:b:foo",

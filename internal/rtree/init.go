@@ -27,29 +27,29 @@ import (
 	"github.com/majewsky/gofu/internal/cli"
 )
 
-//RemoteAlias describes an alias that can be used in a Git remote URL (as
-//defined by the "url.<base>.insteadOf" directive in man:git-config(1)).
+// RemoteAlias describes an alias that can be used in a Git remote URL (as
+// defined by the "url.<base>.insteadOf" directive in man:git-config(1)).
 type RemoteAlias struct {
 	Alias       string
 	Replacement string
 }
 
-//IndexPath is where the index file is stored.
+// IndexPath is where the index file is stored.
 var IndexPath string
 
-//RootPath is the directory below which all repositories are located. Its value
-//is $GOPATH/src to match the repository layout created by `go get`.
+// RootPath is the directory below which all repositories are located. Its value
+// is $GOPATH/src to match the repository layout created by `go get`.
 var RootPath string
 
-//RemoteAliases is the list of remote aliases that is used by ExpandRemoteURL().
+// RemoteAliases is the list of remote aliases that is used by ExpandRemoteURL().
 var RemoteAliases []*RemoteAlias
 
-//Init initializes the global variables of this package to their standard
-//values, unless they are already populated. Unit tests shall set IndexPath,
-//RootPath etc. before calling Exec(), such that this function becomes a no-op
-//when called by Exec().
+// Init initializes the global variables of this package to their standard
+// values, unless they are already populated. Unit tests shall set IndexPath,
+// RootPath etc. before calling Exec(), such that this function becomes a no-op
+// when called by Exec().
 //
-//Returns false if initialization failed.
+// Returns false if initialization failed.
 func Init() bool {
 	ok := true //until shown otherwise
 

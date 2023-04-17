@@ -28,7 +28,7 @@ import (
 	"github.com/majewsky/gofu/internal/cli"
 )
 
-//Repo describes the entry for a repository in the index file.
+// Repo describes the entry for a repository in the index file.
 type Repo struct {
 	//CheckoutPath shall be relative to the RootPath.
 	CheckoutPath string `yaml:"path"`
@@ -38,24 +38,24 @@ type Repo struct {
 	Remotes []Remote `yaml:"remotes"`
 }
 
-//Remote describes a remote that is configured in a Repo.
+// Remote describes a remote that is configured in a Repo.
 type Remote struct {
 	Name string    `yaml:"name"`
 	URL  RemoteURL `yaml:"url"`
 }
 
-//AbsolutePath returns the absolute CheckoutPath of this repo.
+// AbsolutePath returns the absolute CheckoutPath of this repo.
 func (r Repo) AbsolutePath() string {
 	return filepath.Join(RootPath, r.CheckoutPath)
 }
 
-//GitDirPath returns the path of the .git directory of this repo.
+// GitDirPath returns the path of the .git directory of this repo.
 func (r Repo) GitDirPath() string {
 	return filepath.Join(r.AbsolutePath(), ".git")
 }
 
-//NewRepoFromAbsolutePath initializes a Repo instance by scanning the existing
-//checkout at the given path.
+// NewRepoFromAbsolutePath initializes a Repo instance by scanning the existing
+// checkout at the given path.
 func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 	repo.CheckoutPath, err = filepath.Rel(RootPath, path)
 	if err != nil {
@@ -84,8 +84,8 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 	return
 }
 
-//NewRepoFromRemoteURL initializes a Repo instance for checking out a remote
-//for the first time. The checkout does not happen until Checkout() is called.
+// NewRepoFromRemoteURL initializes a Repo instance for checking out a remote
+// for the first time. The checkout does not happen until Checkout() is called.
 func NewRepoFromRemoteURL(remoteURL RemoteURL) (Repo, error) {
 	checkoutPath, err := remoteURL.CheckoutPath()
 	return Repo{
@@ -101,9 +101,9 @@ func NewRepoFromRemoteURL(remoteURL RemoteURL) (Repo, error) {
 
 var remoteConfigRx = regexp.MustCompile(`remote\.([^=]+)\.url=(.+)`)
 
-//ForeachPhysicalRepo walks over the repository tree, executing the action
-//function once for every repo encountered (but *not* for repos contained
-//within other repos, e.g. submodules).
+// ForeachPhysicalRepo walks over the repository tree, executing the action
+// function once for every repo encountered (but *not* for repos contained
+// within other repos, e.g. submodules).
 func ForeachPhysicalRepo(action func(repo Repo) error) error {
 	return filepath.Walk(RootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -131,8 +131,8 @@ func ForeachPhysicalRepo(action func(repo Repo) error) error {
 	})
 }
 
-//Checkout creates the repo in the given path with the given remotes. The
-//working copy will only be initialized if there is an "origin" remote.
+// Checkout creates the repo in the given path with the given remotes. The
+// working copy will only be initialized if there is an "origin" remote.
 func (r Repo) Checkout() error {
 	//check if we have an "origin" remote to clone from
 	var originURL RemoteURL
@@ -183,8 +183,8 @@ func (r Repo) Checkout() error {
 	return nil
 }
 
-//Exec implements the meat of the `rtree exec` command. It returns
-//true iff the command exited successfully.
+// Exec implements the meat of the `rtree exec` command. It returns
+// true iff the command exited successfully.
 func (r Repo) Exec(cmdline ...string) error {
 	cli.Interface.ShowProgress(r.AbsolutePath())
 	return cli.Interface.Run(cli.Command{
@@ -193,9 +193,9 @@ func (r Repo) Exec(cmdline ...string) error {
 	})
 }
 
-//Move sets the CheckoutPath to the given value and moves the existing repo
-//from the old to the new checkoutPath. If makeSymlink is given, a symlink will
-//be created from the old to the new location.
+// Move sets the CheckoutPath to the given value and moves the existing repo
+// from the old to the new checkoutPath. If makeSymlink is given, a symlink will
+// be created from the old to the new location.
 func (r *Repo) Move(checkoutPath string, makeSymlink bool) error {
 	sourcePath := filepath.Join(RootPath, r.CheckoutPath)
 	targetPath := filepath.Join(RootPath, checkoutPath)
@@ -229,8 +229,8 @@ func (r *Repo) Move(checkoutPath string, makeSymlink bool) error {
 	return nil
 }
 
-//ReformatRemoteURLs rewrites the remote URLs in this repo's .git/config into
-//their compact forms.
+// ReformatRemoteURLs rewrites the remote URLs in this repo's .git/config into
+// their compact forms.
 func (r Repo) ReformatRemoteURLs() error {
 	for _, remote := range r.Remotes {
 		err := cli.Interface.Run(cli.Command{

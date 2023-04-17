@@ -33,12 +33,12 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-//Index represents the contents of the index file.
+// Index represents the contents of the index file.
 type Index struct {
 	Repos []*Repo `yaml:"repos"`
 }
 
-//ReadIndex reads the index file.
+// ReadIndex reads the index file.
 func ReadIndex() (*Index, []error) {
 	//read contents of index file
 	buf, err := ioutil.ReadFile(IndexPath)
@@ -90,7 +90,7 @@ func (r reposByAbsPath) Len() int           { return len(r) }
 func (r reposByAbsPath) Less(i, j int) bool { return r[i].AbsolutePath() < r[j].AbsolutePath() }
 func (r reposByAbsPath) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
-//Write writes the index file to disk.
+// Write writes the index file to disk.
 func (i *Index) Write() error {
 	sort.Sort(reposByAbsPath(i.Repos))
 	buf, err := yaml.Marshal(i)
@@ -123,7 +123,7 @@ func (i *Index) Write() error {
 	return nil
 }
 
-//Rebuild implements the `rtree index` subcommand.
+// Rebuild implements the `rtree index` subcommand.
 func (i *Index) Rebuild() error {
 	//check if existing index entries are still checked out
 	var newRepos []*Repo
@@ -210,9 +210,9 @@ func (i *Index) Rebuild() error {
 	return nil
 }
 
-//FindRepo locates the repo with the given remote if it exists on disk or (if
-//allowClone is set) clones it and adds it to the index. This is the meat of
-//`rtree get`, and is also used by `rtree drop`.
+// FindRepo locates the repo with the given remote if it exists on disk or (if
+// allowClone is set) clones it and adds it to the index. This is the meat of
+// `rtree get`, and is also used by `rtree drop`.
 func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 	//make sure that stdout is not used for prompts
 	cli.Interface.StdoutProtected = true
@@ -343,7 +343,7 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 	return target, nil
 }
 
-//ImportRepo moves the given repo into the rtree and adds it to the index.
+// ImportRepo moves the given repo into the rtree and adds it to the index.
 func (i *Index) ImportRepo(dirPath string) error {
 	//need to make dirPath absolute first
 	dirPath, err := filepath.Abs(dirPath)
@@ -405,7 +405,7 @@ func (i *Index) ImportRepo(dirPath string) error {
 	return nil
 }
 
-//DropRepo deletes the given repo from the rtree and removes it from the index.
+// DropRepo deletes the given repo from the rtree and removes it from the index.
 func (i *Index) DropRepo(repo *Repo) error {
 	err := repo.Exec("git", "status")
 	if err != nil {
