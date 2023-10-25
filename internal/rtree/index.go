@@ -127,48 +127,17 @@ func (i *Index) Rebuild() error {
 			return err
 		}
 
-		//repo has been deleted - ask what to do
-		var remoteURLs []string
-		for _, remote := range repo.Remotes {
-			if remote.Name == "origin" {
-				remoteURLs = []string{remote.URL.CompactURL()}
-				break
-			}
-			remoteURLs = append(remoteURLs, remote.URL.CompactURL())
-		}
-
-		repoPath := filepath.Join(RootPath, repo.CheckoutPath)
-		var selection string
-		if len(remoteURLs) == 0 {
-			selection, err = cli.Interface.Query(
-				fmt.Sprintf("repository %s has been deleted; no remote to restore from", repoPath),
-				cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
-				cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
-			)
-		} else {
-			selection, err = cli.Interface.Query(
-				fmt.Sprintf("repository %s has been deleted", repoPath),
-				cli.Choice{Return: "r", Shortcut: 'r', Text: "restore from " + strings.Join(remoteURLs, " and ")},
-				cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
-				cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
-			)
-		}
+		// repo has been deleted - ask what to do
+		repo, err := handleDeleteRepo(*repo)
 		if err != nil {
 			return err
 		}
-
-		switch selection {
-		case "r":
-			err := repo.Checkout()
-			if err != nil {
-				return err
-			}
-			newRepos = append(newRepos, repo)
-		case "d":
+		// repo got deleted
+		if repo == nil {
 			continue
-		case "s":
-			newRepos = append(newRepos, repo)
 		}
+
+		newRepos = append(newRepos, repo)
 	}
 
 	existingRepos := make(map[string]*Repo)
@@ -200,6 +169,52 @@ func (i *Index) Rebuild() error {
 
 	i.Repos = newRepos
 	return nil
+}
+
+func handleDeleteRepo(repo Repo) (*Repo, error) {
+	var remoteURLs []string
+	for _, remote := range repo.Remotes {
+		if remote.Name == "origin" {
+			remoteURLs = []string{remote.URL.CompactURL()}
+			break
+		}
+		remoteURLs = append(remoteURLs, remote.URL.CompactURL())
+	}
+
+	var (
+		err       error
+		selection string
+	)
+	if len(remoteURLs) == 0 {
+		selection, err = cli.Interface.Query(
+			fmt.Sprintf("repository %s has been deleted; no remote to restore from", filepath.Join(RootPath, repo.CheckoutPath)),
+			cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
+			cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
+		)
+	} else {
+		selection, err = cli.Interface.Query(
+			fmt.Sprintf("repository %s has been deleted", filepath.Join(RootPath, repo.CheckoutPath)),
+			cli.Choice{Return: "r", Shortcut: 'r', Text: "restore from " + strings.Join(remoteURLs, " and ")},
+			cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
+			cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
+		)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	switch selection {
+	case "r":
+		err := repo.Checkout()
+		if err != nil {
+			return nil, err
+		}
+	case "d":
+		return nil, nil
+	case "s":
+	}
+
+	return &repo, nil
 }
 
 // FindRepo locates the repo with the given remote if it exists on disk or (if
