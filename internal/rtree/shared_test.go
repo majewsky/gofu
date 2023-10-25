@@ -94,11 +94,11 @@ func (test Test) Run(t *testing.T) {
 	}
 
 	//check output
-	output := string(stdout.Bytes())
+	output := stdout.String()
 	if output != test.ExpectOutput {
 		t.Errorf("%s: expected stdout %#v, but got %#v", t.Name(), test.ExpectOutput, output)
 	}
-	output = string(stderr.Bytes())
+	output = stderr.String()
 	if output != test.ExpectError {
 		t.Errorf("%s: expected stderr %#v, but got %#v", t.Name(), test.ExpectError, output)
 	}
