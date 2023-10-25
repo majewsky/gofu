@@ -47,26 +47,41 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 		return
 	}
 
-	//list remotes
+	remotes, err := collectRemotesFromAbsolutePath(path)
+	if err != nil {
+		return
+	}
+
+	repo.Remotes = append(repo.Remotes, remotes...)
+	return
+}
+
+var remoteConfigRx = regexp.MustCompile(`remote\.([^=]+)\.url=(.+)`)
+
+// collectRemotesFromAbsolutePath collects remotes from an existing git repository
+// by parsing and filtering git config -l
+func collectRemotesFromAbsolutePath(path string) ([]Remote, error) {
 	out, err := cli.Interface.CaptureStdout(cli.Command{
 		Program: []string{"git", "config", "-l"},
 		WorkDir: path,
 	})
 	if err != nil {
-		return
+		return nil, err
 	}
 
+	var remotes []Remote
 	for line := range strings.SplitSeq(out, "\n") {
 		match := remoteConfigRx.FindStringSubmatch(line)
 		if match == nil {
 			continue
 		}
-		repo.Remotes = append(repo.Remotes, Remote{
+		remotes = append(remotes, Remote{
 			Name: match[1],
 			URL:  ParseRemoteURL(match[2]),
 		})
 	}
-	return
+
+	return remotes, nil
 }
 
 // NewRepoFromRemoteURL initializes a Repo instance for checking out a remote
@@ -83,8 +98,6 @@ func NewRepoFromRemoteURL(remoteURL RemoteURL) (Repo, error) {
 		},
 	}, err
 }
-
-var remoteConfigRx = regexp.MustCompile(`remote\.([^=]+)\.url=(.+)`)
 
 // ForeachPhysicalRepo walks over the repository tree, executing the action
 // function once for every repo encountered (but *not* for repos contained
