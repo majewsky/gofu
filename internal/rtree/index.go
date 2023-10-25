@@ -326,18 +326,11 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 		return nil, err
 	}
 
-	err = cli.Interface.Run(cli.Command{
-		Program: []string{"git", "remote", "add", remoteName, remoteURL.CompactURL()},
-		WorkDir: target.AbsolutePath(),
-	})
+	err = target.RunGitCommand("remote", "add", remoteName, remoteURL.CompactURL())
 	if err != nil {
 		return nil, err
 	}
-
-	err = cli.Interface.Run(cli.Command{
-		Program: []string{"git", "remote", "update", remoteName},
-		WorkDir: target.AbsolutePath(),
-	})
+	err = target.RunGitCommand("remote", "update", remoteName)
 	if err != nil {
 		return nil, err
 	}

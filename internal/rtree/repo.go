@@ -129,17 +129,13 @@ func (r Repo) Checkout() error {
 	}
 
 	if originURL == "" {
-		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "init", r.AbsolutePath()},
-		})
+		err := r.RunGitCommandNoWorkDir("init", r.AbsolutePath())
 		if err != nil {
 			return err
 		}
 		cli.Interface.ShowWarning(`will not checkout anything since there is no remote named "origin"`)
 	} else {
-		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "clone", originURL.CanonicalURL(), r.AbsolutePath()},
-		})
+		err := r.RunGitCommandNoWorkDir("clone", originURL.CanonicalURL(), r.AbsolutePath())
 		if err != nil {
 			return err
 		}
@@ -148,10 +144,7 @@ func (r Repo) Checkout() error {
 	remotesAdded := false
 	for _, remote := range r.Remotes {
 		if remote.Name != "origin" {
-			err := cli.Interface.Run(cli.Command{
-				Program: []string{"git", "remote", "add", remote.Name, remote.URL.CanonicalURL()},
-				WorkDir: r.AbsolutePath(),
-			})
+			err := r.RunGitCommand("remote", "add", remote.Name, remote.URL.CanonicalURL())
 			if err != nil {
 				return err
 			}
@@ -159,10 +152,7 @@ func (r Repo) Checkout() error {
 		}
 	}
 	if remotesAdded {
-		return cli.Interface.Run(cli.Command{
-			Program: []string{"git", "remote", "update"},
-			WorkDir: r.AbsolutePath(),
-		})
+		return r.RunGitCommand("remote", "update")
 	}
 
 	return nil
@@ -218,13 +208,27 @@ func (r *Repo) Move(checkoutPath string, makeSymlink bool) error {
 // their compact forms.
 func (r Repo) ReformatRemoteURLs() error {
 	for _, remote := range r.Remotes {
-		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "remote", "set-url", remote.Name, remote.URL.CanonicalURL()},
-			WorkDir: r.AbsolutePath(),
-		})
+		err := r.RunGitCommand("remote", "set-url", remote.Name, remote.URL.CanonicalURL())
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (r Repo) RunGitCommand(args ...string) error {
+	cmd := []string{"git"}
+	cmd = append(cmd, args...)
+	return cli.Interface.Run(cli.Command{
+		Program: cmd,
+		WorkDir: r.AbsolutePath(),
+	})
+}
+
+func (r Repo) RunGitCommandNoWorkDir(args ...string) error {
+	cmd := []string{"git"}
+	cmd = append(cmd, args...)
+	return cli.Interface.Run(cli.Command{
+		Program: cmd,
+	})
 }
