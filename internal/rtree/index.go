@@ -187,13 +187,13 @@ func handleDeleteRepo(repo Repo) (*Repo, error) {
 	)
 	if len(remoteURLs) == 0 {
 		selection, err = cli.Interface.Query(
-			fmt.Sprintf("repository %s has been deleted; no remote to restore from", filepath.Join(RootPath, repo.CheckoutPath)),
+			fmt.Sprintf("repository %s has been deleted; no remote to restore from", repo.AbsolutePath()),
 			cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
 			cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
 		)
 	} else {
 		selection, err = cli.Interface.Query(
-			fmt.Sprintf("repository %s has been deleted", filepath.Join(RootPath, repo.CheckoutPath)),
+			fmt.Sprintf("repository %s has been deleted", repo.AbsolutePath()),
 			cli.Choice{Return: "r", Shortcut: 'r', Text: "restore from " + strings.Join(remoteURLs, " and ")},
 			cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
 			cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
