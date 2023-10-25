@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,7 +112,7 @@ func (test Test) Run(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	actualIdxStr, err := ioutil.ReadFile(IndexPath)
+	actualIdxStr, err := os.ReadFile(IndexPath)
 	if err != nil {
 		t.Fatalf("%s: could not read index from %s: %s", t.Name(), IndexPath, err.Error())
 	}

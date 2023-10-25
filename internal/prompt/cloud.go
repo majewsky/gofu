@@ -19,7 +19,6 @@
 package prompt
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,7 +46,7 @@ func getKubernetesField() string {
 		return ""
 	}
 
-	namespaceBytes, err := ioutil.ReadFile(filepath.Join(os.Getenv("HOME"), ".kubectl-namespace"))
+	namespaceBytes, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".kubectl-namespace"))
 	namespace := strings.TrimSpace(string(namespaceBytes))
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -60,7 +59,7 @@ func getKubernetesField() string {
 }
 
 func getKubernetesContext(configPath string) string {
-	buf, err := ioutil.ReadFile(configPath)
+	buf, err := os.ReadFile(configPath)
 	if err != nil {
 		//non-existence is acceptable, just make the caller continue with the next configPath
 		if !os.IsNotExist(err) {

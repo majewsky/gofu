@@ -21,7 +21,6 @@ package rtree
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -41,7 +40,7 @@ type Index struct {
 // ReadIndex reads the index file.
 func ReadIndex() (*Index, []error) {
 	//read contents of index file
-	buf, err := ioutil.ReadFile(IndexPath)
+	buf, err := os.ReadFile(IndexPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Index{Repos: nil}, nil
@@ -102,7 +101,7 @@ func (i *Index) Write() error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(IndexPath, buf, 0644)
+	err = os.WriteFile(IndexPath, buf, 0644)
 	if err != nil {
 		return err
 	}

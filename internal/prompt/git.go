@@ -20,7 +20,6 @@ package prompt
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,7 +30,7 @@ type gitRepo struct {
 	GitDir   string
 }
 
-//Returns two empty strings if `path` is not inside a Git repo.
+// Returns two empty strings if `path` is not inside a Git repo.
 func findRepo(path string) (*gitRepo, error) {
 	//find .git directory or file
 	gitEntry := filepath.Join(path, ".git")
@@ -54,7 +53,7 @@ func findRepo(path string) (*gitRepo, error) {
 	}
 
 	//.git is a file (e.g. for submodules) - it contains a line like "gitdir: path/to/gitdir"
-	bytes, err := ioutil.ReadFile(gitEntry)
+	bytes, err := os.ReadFile(gitEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +75,7 @@ func getRepoStatusField(repo *gitRepo) string {
 		return ""
 	}
 
-	bytes, err := ioutil.ReadFile(filepath.Join(repo.GitDir, "HEAD"))
+	bytes, err := os.ReadFile(filepath.Join(repo.GitDir, "HEAD"))
 	if err != nil {
 		handleError(err)
 		return withType("git", withColor("1;41", "unknown"))
@@ -94,7 +93,7 @@ func getRepoStatusField(repo *gitRepo) string {
 	refSpecDisplay = strings.TrimPrefix(refSpecDisplay, "heads/")
 
 	//read file corresponding to refspec to find commit ID
-	bytes, err = ioutil.ReadFile(filepath.Join(repo.GitDir, refSpec))
+	bytes, err = os.ReadFile(filepath.Join(repo.GitDir, refSpec))
 	commitID := strings.TrimSpace(string(bytes))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -112,7 +111,7 @@ func getRepoStatusField(repo *gitRepo) string {
 }
 
 func tryReadFromPackedRefs(repo *gitRepo, refSpec string) string {
-	bytes, err := ioutil.ReadFile(filepath.Join(repo.GitDir, "packed-refs"))
+	bytes, err := os.ReadFile(filepath.Join(repo.GitDir, "packed-refs"))
 	if err != nil {
 		return ""
 	}
