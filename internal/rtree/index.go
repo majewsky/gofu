@@ -265,8 +265,8 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 			return nil, err
 		}
 		i.Repos = append(i.Repos, &newRepo)
-		i.Write()
-		return &newRepo, nil
+		err = i.Write()
+		return &newRepo, err
 	}
 
 	//if we found fork candidates, ask the user to match the repo with a fork
@@ -294,8 +294,8 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 			return nil, err
 		}
 		i.Repos = append(i.Repos, &newRepo)
-		i.Write()
-		return &newRepo, nil
+		err = i.Write()
+		return &newRepo, err
 	}
 
 	//find the repo selected by the user
@@ -338,8 +338,8 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 		Name: remoteName,
 		URL:  remoteURL,
 	})
-	i.Write()
-	return target, nil
+	err = i.Write()
+	return target, err
 }
 
 // ImportRepo moves the given repo into the rtree and adds it to the index.
