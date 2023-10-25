@@ -105,7 +105,7 @@ func buildKubernetesField(context, namespace string) string {
 	if context == "" {
 		return ""
 	}
-	if !strings.HasPrefix(context, "qa") {
+	if !strings.Contains(context, "qa") {
 		//visual warning when working in a productive region
 		context = withColor("1;41", context)
 	}
