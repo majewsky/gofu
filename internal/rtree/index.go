@@ -118,8 +118,13 @@ func (i *Index) Rebuild() error {
 			// in a normal repo .git is a directory but when the repo is a submodule of another repo
 			// and the .git dir is absorbed then it is a file which contains the path to the real .git directory
 			if fi.IsDir() || fi.Mode().IsRegular() {
+				repo, err := handleUpdateRemotes(*repo)
+				if err != nil {
+					return err
+				}
+
 				//everything okay with this repo
-				newRepos = append(newRepos, repo)
+				newRepos = append(newRepos, &repo)
 				continue
 			}
 			return fmt.Errorf("expected repository at %s, but is not a directory or file", repo.GitDirPath())
@@ -169,6 +174,77 @@ func (i *Index) Rebuild() error {
 
 	i.Repos = newRepos
 	return nil
+}
+
+func handleUpdateRemotes(repo Repo) (Repo, error) {
+	currentRemotes, err := collectRemotesFromAbsolutePath(repo.AbsolutePath())
+	if err != nil {
+		return Repo{}, err
+	}
+
+	var (
+		newRemotes []Remote
+		toUpdate   []string
+	)
+
+configRemotes:
+	for _, remote := range repo.Remotes {
+		// remote in index exists in repo
+		for _, currentRemote := range currentRemotes {
+			if currentRemote.URL.CompactURL() == remote.URL.CompactURL() {
+				// add URL matching remote as the name might have changed
+				// e.g. when forking from upstream and renaming the old origin to upstream
+				newRemotes = append(newRemotes, currentRemote)
+				continue configRemotes
+			}
+		}
+
+		// ask the user what to do with remotes not existing in checked out repo
+		selection, err := cli.Interface.Query(
+			fmt.Sprintf("repository %s's remote %s has been deleted", repo.AbsolutePath(), remote.Name),
+			cli.Choice{Return: "r", Shortcut: 'r', Text: "restore from " + remote.URL.CompactURL()},
+			cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
+			cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
+		)
+		if err != nil {
+			return Repo{}, err
+		}
+
+		switch selection {
+		case "r":
+			err := repo.RunGitCommand("remote", "add", remote.Name, remote.URL.CompactURL())
+			if err != nil {
+				return Repo{}, err
+			}
+			toUpdate = append(toUpdate, remote.Name)
+			newRemotes = append(newRemotes, remote)
+		case "s":
+			newRemotes = append(newRemotes, remote)
+		case "d":
+		}
+	}
+
+	if len(toUpdate) > 0 {
+		err = repo.RunGitCommand(append([]string{"remote", "update"}, toUpdate...)...)
+		if err != nil {
+			return Repo{}, err
+		}
+	}
+
+	// add all remotes in checkout to index
+currentRemotes:
+	for _, currentRemote := range currentRemotes {
+		for _, newRemote := range newRemotes {
+			if newRemote == currentRemote {
+				continue currentRemotes
+			}
+		}
+
+		newRemotes = append(newRemotes, currentRemote)
+	}
+
+	repo.Remotes = newRemotes
+	return repo, nil
 }
 
 func handleDeleteRepo(repo Repo) (*Repo, error) {
