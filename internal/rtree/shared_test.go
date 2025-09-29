@@ -146,8 +146,8 @@ func Recorded(lines ...string) (cs []RecordedCommand) {
 	cs = make([]RecordedCommand, len(lines))
 	for idx, line := range lines {
 		cmdline := strings.Fields(line)
-		if strings.HasPrefix(cmdline[0], "@") {
-			cs[idx].Cmd.WorkDir = strings.TrimPrefix(cmdline[0], "@")
+		if workDir, ok := strings.CutPrefix(cmdline[0], "@"); ok {
+			cs[idx].Cmd.WorkDir = workDir
 			cmdline = cmdline[1:]
 		}
 		cs[idx].Cmd.Program = cmdline

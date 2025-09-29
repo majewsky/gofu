@@ -83,7 +83,7 @@ func Init() bool {
 		}
 
 		rx := regexp.MustCompile(`^url\.([^=]+)\.insteadof=(.+)$`)
-		for _, line := range strings.Split(out, "\n") {
+		for line := range strings.SplitSeq(out, "\n") {
 			match := rx.FindStringSubmatch(line)
 			if match == nil {
 				continue

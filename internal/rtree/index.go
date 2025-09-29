@@ -57,7 +57,7 @@ func ReadIndex() (*Index, []error) {
 
 	//validate YAML
 	var errs []error
-	missing := func(key string, args ...interface{}) {
+	missing := func(key string, args ...any) {
 		errs = append(errs, fmt.Errorf("read %s: missing \"%s\"",
 			IndexPath, fmt.Sprintf(key, args...),
 		))

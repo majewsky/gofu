@@ -126,7 +126,7 @@ func (i *Implementation) Run(c Command) error {
 func (i *Implementation) CaptureStdout(c Command) (string, error) {
 	var buf bytes.Buffer
 	err := i.commandRunner(c, nil, &buf, i.stderr)
-	return string(buf.Bytes()), err
+	return buf.String(), err
 }
 
 ////////////////////////////////////////////////////////////////////////////////

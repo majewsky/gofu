@@ -71,7 +71,7 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 		return
 	}
 
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		match := remoteConfigRx.FindStringSubmatch(line)
 		if match == nil {
 			continue

@@ -154,7 +154,7 @@ OUTER:
 }
 
 func removeDisplayLines(stdout io.Writer, n int) {
-	for idx := 0; idx < n; idx++ {
+	for range n {
 		stdout.Write([]byte("\x1B[A\x1B[2K"))
 	}
 }

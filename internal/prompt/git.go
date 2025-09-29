@@ -57,12 +57,12 @@ func findRepo(path string) (*gitRepo, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, line := range strings.Split(string(bytes), "\n") {
+	for line := range strings.SplitSeq(string(bytes), "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "gitdir:") {
+		if gitDir, ok := strings.CutPrefix(line, "gitdir:"); ok {
 			return &gitRepo{
 				RootPath: path,
-				GitDir:   filepath.Join(path, strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))),
+				GitDir:   filepath.Join(path, strings.TrimSpace(gitDir)),
 			}, nil
 		}
 	}
@@ -115,7 +115,7 @@ func tryReadFromPackedRefs(repo *gitRepo, refSpec string) string {
 	if err != nil {
 		return ""
 	}
-	for _, line := range strings.Split(string(bytes), "\n") {
+	for line := range strings.SplitSeq(string(bytes), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue

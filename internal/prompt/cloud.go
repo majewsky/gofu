@@ -86,7 +86,7 @@ func getKubernetesFieldViaU8S() string {
 		context   string
 		namespace string
 	)
-	for _, line := range strings.Split(string(stdout), "\n") {
+	for line := range strings.SplitSeq(string(stdout), "\n") {
 		fields := strings.SplitN(strings.TrimSpace(line), "=", 2)
 		if len(fields) != 2 {
 			continue

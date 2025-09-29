@@ -102,13 +102,13 @@ func (u RemoteURL) CheckoutPath() (string, error) {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (u RemoteURL) MarshalYAML() (interface{}, error) {
+func (u RemoteURL) MarshalYAML() (any, error) {
 	//store URLs in the index in the canonical format
 	return u.CanonicalURL(), nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (u *RemoteURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (u *RemoteURL) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	err := unmarshal(&s)
 	if err == nil {
