@@ -26,11 +26,11 @@ import (
 	"strconv"
 	"strings"
 
-	terminal "golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
-//cannot use `var errInterrupted = errors.New("Interrupted!")` because golint
-//complains about the formatting of the error message
+// cannot use `var errInterrupted = errors.New("Interrupted!")` because golint
+// complains about the formatting of the error message
 type errInterrupted struct{}
 
 func (e errInterrupted) Error() string {
@@ -75,7 +75,7 @@ func (t terminalTUI) Confirm(question string) (bool, error) {
 	}
 }
 
-//Choice is a thing that the user can choose during Query().
+// Choice is a thing that the user can choose during Query().
 type Choice struct {
 	//If given, the choice can be selected by pressing the key that
 	//produces this character.
@@ -212,11 +212,11 @@ func (b *buffer) getNextInput() []byte {
 		return result
 	}
 
-	oldState, err := terminal.MakeRaw(0)
+	oldState, err := term.MakeRaw(0)
 	if err != nil {
 		panic(err)
 	}
-	defer terminal.Restore(0, oldState)
+	defer term.Restore(0, oldState)
 
 	//fill buffer some more
 	n, err := b.Input.Read(b.buf[b.fill:])
@@ -235,7 +235,7 @@ type pipeTUI struct {
 	i *Implementation
 }
 
-//AnsiColorCodeRx is a regexp that matches ANSI escape sequences of the type SGR.
+// AnsiColorCodeRx is a regexp that matches ANSI escape sequences of the type SGR.
 var AnsiColorCodeRx = regexp.MustCompile("\x1B" + `\[[0-9;]*m`)
 
 func (t *pipeTUI) Print(w io.Writer, msg string) {
@@ -267,8 +267,8 @@ func (t *pipeTUI) Confirm(question string) (bool, error) {
 	return ok, nil
 }
 
-//Query for the pipe TUI is limited to exact matches of the choice text, or
-//matching by choice shortcut.
+// Query for the pipe TUI is limited to exact matches of the choice text, or
+// matching by choice shortcut.
 func (t *pipeTUI) Query(prompt string, choices ...Choice) (string, error) {
 	str, err := t.i.stdinBuf.ReadString('\n')
 	if err != nil {

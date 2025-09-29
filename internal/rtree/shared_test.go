@@ -29,8 +29,9 @@ import (
 	"strings"
 	"testing"
 
+	yaml "go.yaml.in/yaml/v3"
+
 	"github.com/majewsky/gofu/internal/cli"
-	yaml "gopkg.in/yaml.v2"
 )
 
 // Path to a directory where tests can put their index files.

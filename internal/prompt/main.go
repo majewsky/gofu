@@ -23,13 +23,13 @@ import (
 	"os"
 	"strings"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
 	"github.com/majewsky/gofu/internal/cli"
 )
 
-//Exec executes the prettyprompt applet and returns an exit code (0 for
-//success, >0 for error).
+// Exec executes the prettyprompt applet and returns an exit code (0 for
+// success, >0 for error).
 func Exec(args []string) int {
 	var tt TerminalTitle
 	fields := []string{
@@ -55,7 +55,7 @@ func Exec(args []string) int {
 	lineWidth := getPrintableLength(line)
 
 	//add dashes to expand `line` to fill the terminal's width
-	termWidth, _, err := terminal.GetSize(0)
+	termWidth, _, err := term.GetSize(0)
 	if err != nil {
 		termWidth = 80
 	}
@@ -111,10 +111,10 @@ func getPrintableLength(text string) int {
 	return len(cli.AnsiColorCodeRx.ReplaceAllString(text, ""))
 }
 
-//withColor adds ANSI escape sequences to the string to display it with a
-//certain color. The color is given as the semicolon-separated list of
-//arguments to the ANSI escape sequence SGR, e.g. "1;41" for bold with red
-//background.
+// withColor adds ANSI escape sequences to the string to display it with a
+// certain color. The color is given as the semicolon-separated list of
+// arguments to the ANSI escape sequence SGR, e.g. "1;41" for bold with red
+// background.
 func withColor(color, text string) string {
 	if color == "0" {
 		return text
@@ -122,7 +122,7 @@ func withColor(color, text string) string {
 	return fmt.Sprintf("\x1B[%sm%s\x1B[0m", color, text)
 }
 
-//withType adds a type annotation with a standardized format to the text.
+// withType adds a type annotation with a standardized format to the text.
 func withType(typeStr, text string) string {
 	return fmt.Sprintf("\x1B[37m%s:\x1B[0m%s", typeStr, text)
 }

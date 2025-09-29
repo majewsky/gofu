@@ -29,7 +29,7 @@ import (
 
 	"github.com/majewsky/gofu/internal/cli"
 
-	yaml "gopkg.in/yaml.v2"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // Index represents the contents of the index file.

@@ -27,18 +27,18 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
-//Interface wraps access to the CLI, including input, output and subprocesses.
+// Interface wraps access to the CLI, including input, output and subprocesses.
 var Interface *Implementation
 
 func init() {
 	SetupInterface(os.Stdin, os.Stdout, os.Stderr, DefaultCommandRunner)
 }
 
-//SetupInterface prepares the Interface instance with nonstandard file streams
-//or a nonstandard CommandRunner. This is only required for unit tests.
+// SetupInterface prepares the Interface instance with nonstandard file streams
+// or a nonstandard CommandRunner. This is only required for unit tests.
 func SetupInterface(stdin io.Reader, stdout, stderr io.Writer, commandRunner CommandRunner) {
 	Interface = &Implementation{
 		stdin:         stdin,
@@ -48,14 +48,14 @@ func SetupInterface(stdin io.Reader, stdout, stderr io.Writer, commandRunner Com
 		commandRunner: commandRunner,
 	}
 
-	if stdinFile, ok := stdin.(*os.File); ok && terminal.IsTerminal(int(stdinFile.Fd())) {
+	if stdinFile, ok := stdin.(*os.File); ok && term.IsTerminal(int(stdinFile.Fd())) {
 		Interface.tui = &terminalTUI{Interface}
 	} else {
 		Interface.tui = &pipeTUI{Interface}
 	}
 }
 
-//Implementation wraps access to the CLI, including input, output and subprocesses.
+// Implementation wraps access to the CLI, including input, output and subprocesses.
 type Implementation struct {
 	stdin         io.Reader
 	stdout        io.Writer
@@ -72,8 +72,8 @@ type Implementation struct {
 	StdoutProtected bool
 }
 
-//TUI provides the interactive parts of the cli.Implementation, so that these can be
-//easily swapped out for mock implementations in unit tests.
+// TUI provides the interactive parts of the cli.Implementation, so that these can be
+// easily swapped out for mock implementations in unit tests.
 type TUI interface {
 	//ReadLine reads a line from stdin (if tty: uses canonical mode).
 	ReadLine(prompt string) (string, error)
@@ -98,18 +98,18 @@ func (i *Implementation) safeStdout() io.Writer {
 ////////////////////////////////////////////////////////////////////////////////
 // input
 
-//ReadLine reads a line from stdin (if tty: uses canonical mode).
+// ReadLine reads a line from stdin (if tty: uses canonical mode).
 func (i *Implementation) ReadLine(prompt string) (string, error) {
 	return i.tui.ReadLine(prompt)
 }
 
-//Confirm displays a yes/no question and returns whether the user answered "yes".
+// Confirm displays a yes/no question and returns whether the user answered "yes".
 func (i *Implementation) Confirm(question string) (bool, error) {
 	return i.tui.Confirm(question)
 }
 
-//Query displays a question and a set of answers and allows the user to select
-//one of the answers. Returns the Return attribute of the selected Choice.
+// Query displays a question and a set of answers and allows the user to select
+// one of the answers. Returns the Return attribute of the selected Choice.
 func (i *Implementation) Query(prompt string, choices ...Choice) (string, error) {
 	return i.tui.Query(prompt, choices...)
 }
@@ -117,12 +117,12 @@ func (i *Implementation) Query(prompt string, choices ...Choice) (string, error)
 ////////////////////////////////////////////////////////////////////////////////
 // subprocesses
 
-//Run executes the given command on the same stdout and stderr.
+// Run executes the given command on the same stdout and stderr.
 func (i *Implementation) Run(c Command) error {
 	return i.commandRunner(c, nil, i.safeStdout(), i.stderr)
 }
 
-//CaptureStdout executes the given command on the same stderr and captures its stdout.
+// CaptureStdout executes the given command on the same stderr and captures its stdout.
 func (i *Implementation) CaptureStdout(c Command) (string, error) {
 	var buf bytes.Buffer
 	err := i.commandRunner(c, nil, &buf, i.stderr)
@@ -132,13 +132,13 @@ func (i *Implementation) CaptureStdout(c Command) (string, error) {
 ////////////////////////////////////////////////////////////////////////////////
 // output
 
-//ShowResult displays the result of a computation on stdout.
+// ShowResult displays the result of a computation on stdout.
 func (i *Implementation) ShowResult(str string) {
 	str = strings.TrimSpace(str) + "\n"
 	i.stdout.Write([]byte(str))
 }
 
-//ShowResultsSorted calls ShowResult() on each of the results after sorting them.
+// ShowResultsSorted calls ShowResult() on each of the results after sorting them.
 func (i *Implementation) ShowResultsSorted(strs []string) {
 	sort.Strings(strs)
 	for _, str := range strs {
@@ -146,22 +146,22 @@ func (i *Implementation) ShowResultsSorted(strs []string) {
 	}
 }
 
-//ShowProgress displays a progress message on stderr.
+// ShowProgress displays a progress message on stderr.
 func (i *Implementation) ShowProgress(str string) {
 	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;36m>>\x1B[0;36m %s\x1B[0m\n", strings.TrimSpace(str)))
 }
 
-//ShowWarning displays a warning message on stderr.
+// ShowWarning displays a warning message on stderr.
 func (i *Implementation) ShowWarning(str string) {
 	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;33m!!\x1B[0;33m %s\x1B[0m\n", strings.TrimSpace(str)))
 }
 
-//ShowError displays an error message on stderr.
+// ShowError displays an error message on stderr.
 func (i *Implementation) ShowError(str string) {
 	i.tui.Print(i.stderr, fmt.Sprintf("\x1B[0;1;31m!!\x1B[0;31m %s\x1B[0m\n", strings.TrimSpace(str)))
 }
 
-//ShowUsage displays a usage synopsis on stderr.
+// ShowUsage displays a usage synopsis on stderr.
 func (i *Implementation) ShowUsage(str string) {
 	str = strings.TrimSpace(str) + "\n"
 	i.stderr.Write([]byte(str))
