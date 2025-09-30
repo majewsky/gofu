@@ -1,0 +1,48 @@
+:root {
+  height: 100vh;
+  overflow: none;
+}
+
+body {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  grid-template-rows: 2rem 1fr;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "nav nav" "editor preview";
+  overflow: hidden;
+  height: 100vh;
+  font-family: system-ui, sans-serif;
+
+  & > nav { grid-area: nav; }
+  & > textarea#editor { grid-area: editor; }
+  & > div#preview { grid-area: preview; }
+}
+
+nav {
+  height: 2rem;
+  line-height: 2rem;
+  padding: 0 1rem;
+  background: #111;
+  color: white;
+
+  & > span#title { font-weight: bold; }
+}
+
+textarea#editor {
+  margin: 0;
+  border: none;
+  background: #333;
+  color: white;
+
+  resize: none;
+  overflow-y: scroll;
+  height: 100%;
+}
+
+div#preview {
+  padding: 0 1rem;
+
+  overflow: scroll;
+  height: 100%;
+}

@@ -19,6 +19,15 @@ $ make && make install
 
 # List of applets
 
+## `mdedit`
+
+This provides a very simple in-browser Markdown editor with a preview pane.
+Run as `mdedit path/to/document.md localhost:8080` and then navigate to
+<http://localhost:8080/> to start editing. Changes will automatically be saved
+to the server (and thus to the source file) after one second of no typing.
+It is recommended to not listen on anything besides `localhost`; there is no
+authentication or anything.
+
 ## `prettyprompt`
 
 This renders my shell prompt. Among other things, it identifies the current

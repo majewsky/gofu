@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/majewsky/gofu/internal/mdedit"
 	"github.com/majewsky/gofu/internal/prompt"
 	"github.com/majewsky/gofu/internal/rtree"
 )
@@ -27,6 +28,8 @@ func execApplet(applet string, args []string, allowGofu bool) int {
 	}
 
 	switch applet {
+	case "mdedit":
+		return mdedit.Exec(args)
 	case "prettyprompt":
 		return prompt.Exec(args)
 	case "rtree":

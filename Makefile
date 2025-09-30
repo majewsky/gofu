@@ -1,6 +1,6 @@
 PREFIX  = /usr
 DESTDIR =
-APPLETS = rtree prettyprompt
+APPLETS = mdedit rtree prettyprompt
 
 all: build/gofu $(addprefix build/,$(APPLETS))
 
