@@ -47,26 +47,41 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 		return
 	}
 
-	//list remotes
+	remotes, err := collectRemotesFromAbsolutePath(path)
+	if err != nil {
+		return
+	}
+
+	repo.Remotes = append(repo.Remotes, remotes...)
+	return
+}
+
+var remoteConfigRx = regexp.MustCompile(`remote\.([^=]+)\.url=(.+)`)
+
+// collectRemotesFromAbsolutePath collects remotes from an existing git repository
+// by parsing and filtering git config -l
+func collectRemotesFromAbsolutePath(path string) ([]Remote, error) {
 	out, err := cli.Interface.CaptureStdout(cli.Command{
 		Program: []string{"git", "config", "-l"},
 		WorkDir: path,
 	})
 	if err != nil {
-		return
+		return nil, err
 	}
 
+	var remotes []Remote
 	for line := range strings.SplitSeq(out, "\n") {
 		match := remoteConfigRx.FindStringSubmatch(line)
 		if match == nil {
 			continue
 		}
-		repo.Remotes = append(repo.Remotes, Remote{
+		remotes = append(remotes, Remote{
 			Name: match[1],
 			URL:  ParseRemoteURL(match[2]),
 		})
 	}
-	return
+
+	return remotes, nil
 }
 
 // NewRepoFromRemoteURL initializes a Repo instance for checking out a remote
@@ -83,8 +98,6 @@ func NewRepoFromRemoteURL(remoteURL RemoteURL) (Repo, error) {
 		},
 	}, err
 }
-
-var remoteConfigRx = regexp.MustCompile(`remote\.([^=]+)\.url=(.+)`)
 
 // ForeachPhysicalRepo walks over the repository tree, executing the action
 // function once for every repo encountered (but *not* for repos contained
@@ -129,17 +142,13 @@ func (r Repo) Checkout() error {
 	}
 
 	if originURL == "" {
-		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "init", r.AbsolutePath()},
-		})
+		err := r.RunGitCommandNoWorkDir("init", r.AbsolutePath())
 		if err != nil {
 			return err
 		}
 		cli.Interface.ShowWarning(`will not checkout anything since there is no remote named "origin"`)
 	} else {
-		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "clone", originURL.CanonicalURL(), r.AbsolutePath()},
-		})
+		err := r.RunGitCommandNoWorkDir("clone", originURL.CanonicalURL(), r.AbsolutePath())
 		if err != nil {
 			return err
 		}
@@ -148,10 +157,7 @@ func (r Repo) Checkout() error {
 	remotesAdded := false
 	for _, remote := range r.Remotes {
 		if remote.Name != "origin" {
-			err := cli.Interface.Run(cli.Command{
-				Program: []string{"git", "remote", "add", remote.Name, remote.URL.CanonicalURL()},
-				WorkDir: r.AbsolutePath(),
-			})
+			err := r.RunGitCommand("remote", "add", remote.Name, remote.URL.CanonicalURL())
 			if err != nil {
 				return err
 			}
@@ -159,10 +165,7 @@ func (r Repo) Checkout() error {
 		}
 	}
 	if remotesAdded {
-		return cli.Interface.Run(cli.Command{
-			Program: []string{"git", "remote", "update"},
-			WorkDir: r.AbsolutePath(),
-		})
+		return r.RunGitCommand("remote", "update")
 	}
 
 	return nil
@@ -218,13 +221,27 @@ func (r *Repo) Move(checkoutPath string, makeSymlink bool) error {
 // their compact forms.
 func (r Repo) ReformatRemoteURLs() error {
 	for _, remote := range r.Remotes {
-		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "remote", "set-url", remote.Name, remote.URL.CanonicalURL()},
-			WorkDir: r.AbsolutePath(),
-		})
+		err := r.RunGitCommand("remote", "set-url", remote.Name, remote.URL.CanonicalURL())
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (r Repo) RunGitCommand(args ...string) error {
+	cmd := []string{"git"}
+	cmd = append(cmd, args...)
+	return cli.Interface.Run(cli.Command{
+		Program: cmd,
+		WorkDir: r.AbsolutePath(),
+	})
+}
+
+func (r Repo) RunGitCommandNoWorkDir(args ...string) error {
+	cmd := []string{"git"}
+	cmd = append(cmd, args...)
+	return cli.Interface.Run(cli.Command{
+		Program: cmd,
+	})
 }

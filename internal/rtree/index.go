@@ -118,8 +118,13 @@ func (i *Index) Rebuild() error {
 			// in a normal repo .git is a directory but when the repo is a submodule of another repo
 			// and the .git dir is absorbed then it is a file which contains the path to the real .git directory
 			if fi.IsDir() || fi.Mode().IsRegular() {
+				repo, err := handleUpdateRemotes(*repo)
+				if err != nil {
+					return err
+				}
+
 				//everything okay with this repo
-				newRepos = append(newRepos, repo)
+				newRepos = append(newRepos, &repo)
 				continue
 			}
 			return fmt.Errorf("expected repository at %s, but is not a directory or file", repo.GitDirPath())
@@ -127,48 +132,17 @@ func (i *Index) Rebuild() error {
 			return err
 		}
 
-		//repo has been deleted - ask what to do
-		var remoteURLs []string
-		for _, remote := range repo.Remotes {
-			if remote.Name == "origin" {
-				remoteURLs = []string{remote.URL.CompactURL()}
-				break
-			}
-			remoteURLs = append(remoteURLs, remote.URL.CompactURL())
-		}
-
-		repoPath := filepath.Join(RootPath, repo.CheckoutPath)
-		var selection string
-		if len(remoteURLs) == 0 {
-			selection, err = cli.Interface.Query(
-				fmt.Sprintf("repository %s has been deleted; no remote to restore from", repoPath),
-				cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
-				cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
-			)
-		} else {
-			selection, err = cli.Interface.Query(
-				fmt.Sprintf("repository %s has been deleted", repoPath),
-				cli.Choice{Return: "r", Shortcut: 'r', Text: "restore from " + strings.Join(remoteURLs, " and ")},
-				cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
-				cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
-			)
-		}
+		// repo has been deleted - ask what to do
+		repo, err := handleDeleteRepo(*repo)
 		if err != nil {
 			return err
 		}
-
-		switch selection {
-		case "r":
-			err := repo.Checkout()
-			if err != nil {
-				return err
-			}
-			newRepos = append(newRepos, repo)
-		case "d":
+		// repo got deleted
+		if repo == nil {
 			continue
-		case "s":
-			newRepos = append(newRepos, repo)
 		}
+
+		newRepos = append(newRepos, repo)
 	}
 
 	existingRepos := make(map[string]*Repo)
@@ -200,6 +174,123 @@ func (i *Index) Rebuild() error {
 
 	i.Repos = newRepos
 	return nil
+}
+
+func handleUpdateRemotes(repo Repo) (Repo, error) {
+	currentRemotes, err := collectRemotesFromAbsolutePath(repo.AbsolutePath())
+	if err != nil {
+		return Repo{}, err
+	}
+
+	var (
+		newRemotes []Remote
+		toUpdate   []string
+	)
+
+configRemotes:
+	for _, remote := range repo.Remotes {
+		// remote in index exists in repo
+		for _, currentRemote := range currentRemotes {
+			if currentRemote.URL.CompactURL() == remote.URL.CompactURL() {
+				// add URL matching remote as the name might have changed
+				// e.g. when forking from upstream and renaming the old origin to upstream
+				newRemotes = append(newRemotes, currentRemote)
+				continue configRemotes
+			}
+		}
+
+		// ask the user what to do with remotes not existing in checked out repo
+		selection, err := cli.Interface.Query(
+			fmt.Sprintf("remote %q of repository %q has been deleted", repo.AbsolutePath(), remote.Name),
+			cli.Choice{Return: "r", Shortcut: 'r', Text: "restore from " + remote.URL.CompactURL()},
+			cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
+			cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
+		)
+		if err != nil {
+			return Repo{}, err
+		}
+
+		switch selection {
+		case "r":
+			err := repo.RunGitCommand("remote", "add", remote.Name, remote.URL.CompactURL())
+			if err != nil {
+				return Repo{}, err
+			}
+			toUpdate = append(toUpdate, remote.Name)
+			newRemotes = append(newRemotes, remote)
+		case "s":
+			newRemotes = append(newRemotes, remote)
+		case "d":
+		}
+	}
+
+	if len(toUpdate) > 0 {
+		err = repo.RunGitCommand(append([]string{"remote", "update"}, toUpdate...)...)
+		if err != nil {
+			return Repo{}, err
+		}
+	}
+
+	// add all remotes in checkout to index
+currentRemotes:
+	for _, currentRemote := range currentRemotes {
+		for _, newRemote := range newRemotes {
+			if newRemote == currentRemote {
+				continue currentRemotes
+			}
+		}
+
+		newRemotes = append(newRemotes, currentRemote)
+	}
+
+	repo.Remotes = newRemotes
+	return repo, nil
+}
+
+func handleDeleteRepo(repo Repo) (*Repo, error) {
+	var remoteURLs []string
+	for _, remote := range repo.Remotes {
+		if remote.Name == "origin" {
+			remoteURLs = []string{remote.URL.CompactURL()}
+			break
+		}
+		remoteURLs = append(remoteURLs, remote.URL.CompactURL())
+	}
+
+	var (
+		err       error
+		selection string
+	)
+	if len(remoteURLs) == 0 {
+		selection, err = cli.Interface.Query(
+			fmt.Sprintf("repository %q has been deleted; no remote to restore from", repo.AbsolutePath()),
+			cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
+			cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
+		)
+	} else {
+		selection, err = cli.Interface.Query(
+			fmt.Sprintf("repository %q has been deleted", repo.AbsolutePath()),
+			cli.Choice{Return: "r", Shortcut: 'r', Text: "restore from " + strings.Join(remoteURLs, " and ")},
+			cli.Choice{Return: "d", Shortcut: 'd', Text: "delete from index"},
+			cli.Choice{Return: "s", Shortcut: 's', Text: "skip"},
+		)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	switch selection {
+	case "r":
+		err := repo.Checkout()
+		if err != nil {
+			return nil, err
+		}
+	case "d":
+		return nil, nil
+	case "s":
+	}
+
+	return &repo, nil
 }
 
 // FindRepo locates the repo with the given remote if it exists on disk or (if
@@ -311,18 +402,11 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 		return nil, err
 	}
 
-	err = cli.Interface.Run(cli.Command{
-		Program: []string{"git", "remote", "add", remoteName, remoteURL.CompactURL()},
-		WorkDir: target.AbsolutePath(),
-	})
+	err = target.RunGitCommand("remote", "add", remoteName, remoteURL.CompactURL())
 	if err != nil {
 		return nil, err
 	}
-
-	err = cli.Interface.Run(cli.Command{
-		Program: []string{"git", "remote", "update", remoteName},
-		WorkDir: target.AbsolutePath(),
-	})
+	err = target.RunGitCommand("remote", "update", remoteName)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +458,7 @@ func (i *Index) ImportRepo(dirPath string) error {
 			return errors.New("repo has no remotes")
 		}
 
-		question := fmt.Sprintf("Repo has multiple remotes. Where to put below %s?", RootPath)
+		question := fmt.Sprintf("Repo has multiple remotes. Where to put below %q?", RootPath)
 		checkoutPath, err = cli.Interface.Query(question, choices...)
 		if err != nil {
 			return err
