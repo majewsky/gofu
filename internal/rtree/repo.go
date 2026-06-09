@@ -49,7 +49,7 @@ func (r Remote) CompactURLs() []string {
 
 // NewRepoFromAbsolutePath initializes a Repo instance by scanning the existing
 // checkout at the given path.
-func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
+func NewRepoFromAbsolutePath(path string, normalizeRemoteURLs bool) (repo Repo, err error) {
 	repo.CheckoutPath, err = filepath.Rel(RootPath, path)
 	if err != nil {
 		return
@@ -70,7 +70,15 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 		if match == nil {
 			continue
 		}
-		name, url := match[1], ParseRemoteURL(match[2])
+		var (
+			name = match[1]
+			url  RemoteURL
+		)
+		if normalizeRemoteURLs {
+			url = ParseRemoteURL(match[2])
+		} else {
+			url = RemoteURL(match[2]) // straight cast without processing
+		}
 		if remote, ok := repo.Remotes[name]; ok {
 			remote.URLs = append(remote.URLs, url)
 			repo.Remotes[name] = remote
@@ -115,7 +123,7 @@ func ForeachPhysicalRepo(action func(repo Repo) error) error {
 		}
 
 		//appears to be a repo
-		repo, err := NewRepoFromAbsolutePath(path)
+		repo, err := NewRepoFromAbsolutePath(path, true)
 		if err == nil {
 			err = action(repo)
 		}
@@ -242,7 +250,7 @@ func (r Repo) ReformatRemoteURLs() error {
 	// NOTE: This is a bit convoluted because the specific case of updating URLs
 	// for a remote with multiple URLs requires multiple steps. First, we clear
 	// out all non-primary URLs, and then re-add them after updating the primary URL.
-	actualRepo, err := NewRepoFromAbsolutePath(r.AbsolutePath())
+	actualRepo, err := NewRepoFromAbsolutePath(r.AbsolutePath(), false)
 	if err != nil {
 		return err
 	}

@@ -353,7 +353,7 @@ func (i *Index) ImportRepo(dirPath string) error {
 	if err != nil {
 		return err
 	}
-	repo, err := NewRepoFromAbsolutePath(dirPath)
+	repo, err := NewRepoFromAbsolutePath(dirPath, true)
 	if err != nil {
 		return err
 	}
