@@ -5,6 +5,7 @@ package rtree
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,8 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	yaml "go.yaml.in/yaml/v3"
 
 	"github.com/majewsky/gofu/internal/cli"
 )
@@ -56,7 +55,7 @@ type Test struct {
 
 func (test Test) Run(t *testing.T) {
 	//write index file, if any
-	IndexPath = filepath.Join(indexTmpDir, t.Name()+".yaml")
+	IndexPath = filepath.Join(indexTmpDir, t.Name()+".json")
 	if test.Index.Repos != nil {
 		err := test.Index.Write()
 		if err != nil {
@@ -94,7 +93,7 @@ func (test Test) Run(t *testing.T) {
 	if test.ExpectIndex != nil {
 		idx = test.ExpectIndex
 	}
-	expectedIdxStr, err := yaml.Marshal(idx)
+	expectedIdxStr, err := json.MarshalIndent(idx, "", "  ")
 	if err != nil {
 		t.Fatal(err.Error())
 	}

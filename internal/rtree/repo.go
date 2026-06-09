@@ -16,17 +16,16 @@ import (
 // Repo describes the entry for a repository in the index file.
 type Repo struct {
 	//CheckoutPath shall be relative to the RootPath.
-	CheckoutPath string `yaml:"path"`
+	CheckoutPath string `json:"path"`
 	//Remotes maps remote names (as noted in the .git/config of the repo) to
 	//remote URLs (as they appear in the .git/config of the repo, i.e. possibly
 	//abbreviated).
-	Remotes []Remote `yaml:"remotes"`
+	Remotes map[string]Remote `json:"remotes"`
 }
 
 // Remote describes a remote that is configured in a Repo.
 type Remote struct {
-	Name string    `yaml:"name"`
-	URL  RemoteURL `yaml:"url"`
+	URLs []RemoteURL `json:"urls"`
 }
 
 // AbsolutePath returns the absolute CheckoutPath of this repo.
@@ -37,6 +36,15 @@ func (r Repo) AbsolutePath() string {
 // GitDirPath returns the path of the .git directory of this repo.
 func (r Repo) GitDirPath() string {
 	return filepath.Join(r.AbsolutePath(), ".git")
+}
+
+// CompactURLs returns all URLs for this remote in their compact form.
+func (r Remote) CompactURLs() []string {
+	result := make([]string, len(r.URLs))
+	for idx, url := range r.URLs {
+		result[idx] = url.CompactURL()
+	}
+	return result
 }
 
 // NewRepoFromAbsolutePath initializes a Repo instance by scanning the existing
@@ -56,15 +64,19 @@ func NewRepoFromAbsolutePath(path string) (repo Repo, err error) {
 		return
 	}
 
+	repo.Remotes = make(map[string]Remote)
 	for line := range strings.SplitSeq(out, "\n") {
 		match := remoteConfigRx.FindStringSubmatch(line)
 		if match == nil {
 			continue
 		}
-		repo.Remotes = append(repo.Remotes, Remote{
-			Name: match[1],
-			URL:  ParseRemoteURL(match[2]),
-		})
+		name, url := match[1], ParseRemoteURL(match[2])
+		if remote, ok := repo.Remotes[name]; ok {
+			remote.URLs = append(remote.URLs, url)
+			repo.Remotes[name] = remote
+		} else {
+			repo.Remotes[name] = Remote{URLs: []RemoteURL{url}}
+		}
 	}
 	return
 }
@@ -75,10 +87,9 @@ func NewRepoFromRemoteURL(remoteURL RemoteURL) (Repo, error) {
 	checkoutPath, err := remoteURL.CheckoutPath()
 	return Repo{
 		CheckoutPath: checkoutPath,
-		Remotes: []Remote{
-			{
-				Name: "origin",
-				URL:  remoteURL,
+		Remotes: map[string]Remote{
+			"origin": {
+				URLs: []RemoteURL{remoteURL},
 			},
 		},
 	}, err
@@ -121,9 +132,9 @@ func ForeachPhysicalRepo(action func(repo Repo) error) error {
 func (r Repo) Checkout() error {
 	//check if we have an "origin" remote to clone from
 	var originURL RemoteURL
-	for _, remote := range r.Remotes {
-		if remote.Name == "origin" {
-			originURL = remote.URL
+	for remoteName, remote := range r.Remotes {
+		if remoteName == "origin" {
+			originURL = remote.URLs[0]
 			break
 		}
 	}
@@ -146,16 +157,27 @@ func (r Repo) Checkout() error {
 	}
 
 	remotesAdded := false
-	for _, remote := range r.Remotes {
-		if remote.Name != "origin" {
-			err := cli.Interface.Run(cli.Command{
-				Program: []string{"git", "remote", "add", remote.Name, remote.URL.CanonicalURL()},
-				WorkDir: r.AbsolutePath(),
-			})
-			if err != nil {
-				return err
+	for remoteName, remote := range r.Remotes {
+		for idx, url := range remote.URLs {
+			if idx == 0 && remoteName != "origin" {
+				err := cli.Interface.Run(cli.Command{
+					Program: []string{"git", "remote", "add", remoteName, url.CanonicalURL()},
+					WorkDir: r.AbsolutePath(),
+				})
+				if err != nil {
+					return err
+				}
+				remotesAdded = true
+			} else if idx > 0 {
+				err := cli.Interface.Run(cli.Command{
+					Program: []string{"git", "remote", "set-url", "--add", remoteName, url.CanonicalURL()},
+					WorkDir: r.AbsolutePath(),
+				})
+				if err != nil {
+					return err
+				}
+				remotesAdded = true
 			}
-			remotesAdded = true
 		}
 	}
 	if remotesAdded {
@@ -215,15 +237,49 @@ func (r *Repo) Move(checkoutPath string, makeSymlink bool) error {
 }
 
 // ReformatRemoteURLs rewrites the remote URLs in this repo's .git/config into
-// their compact forms.
+// their canonical forms.
 func (r Repo) ReformatRemoteURLs() error {
-	for _, remote := range r.Remotes {
+	// NOTE: This is a bit convoluted because the specific case of updating URLs
+	// for a remote with multiple URLs requires multiple steps. First, we clear
+	// out all non-primary URLs, and then re-add them after updating the primary URL.
+	actualRepo, err := NewRepoFromAbsolutePath(r.AbsolutePath())
+	if err != nil {
+		return err
+	}
+
+	for remoteName, remote := range r.Remotes {
+		actualRemote := actualRepo.Remotes[remoteName]
+
+		if len(actualRemote.URLs) > 1 {
+			for _, url := range actualRemote.URLs[1:] {
+				err := cli.Interface.Run(cli.Command{
+					Program: []string{"git", "remote", "set-url", "--delete", remoteName, url.CanonicalURL()},
+					WorkDir: r.AbsolutePath(),
+				})
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		err := cli.Interface.Run(cli.Command{
-			Program: []string{"git", "remote", "set-url", remote.Name, remote.URL.CanonicalURL()},
+			Program: []string{"git", "remote", "set-url", remoteName, remote.URLs[0].CanonicalURL()},
 			WorkDir: r.AbsolutePath(),
 		})
 		if err != nil {
 			return err
+		}
+
+		if len(remote.URLs) > 1 {
+			for _, url := range remote.URLs[1:] {
+				err := cli.Interface.Run(cli.Command{
+					Program: []string{"git", "remote", "set-url", "--add", remoteName, url.CanonicalURL()},
+					WorkDir: r.AbsolutePath(),
+				})
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

@@ -13,14 +13,14 @@ var testIndexWithTwoRepos = Index{
 	Repos: []*Repo{
 		{
 			CheckoutPath: "github.com/foo/bar",
-			Remotes: []Remote{
-				{Name: "origin", URL: "https://github.com/foo/bar"},
+			Remotes: map[string]Remote{
+				"origin": {URLs: []RemoteURL{"https://github.com/foo/bar"}},
 			},
 		},
 		{
 			CheckoutPath: "github.com/git/git",
-			Remotes: []Remote{
-				{Name: "origin", URL: "https://github.com/git/git"},
+			Remotes: map[string]Remote{
+				"origin": {URLs: []RemoteURL{"https://github.com/git/git"}},
 			},
 		},
 	},
@@ -55,9 +55,9 @@ func TestGetNewRepo(t *testing.T) {
 				Repos: []*Repo{
 					{
 						CheckoutPath: "github.com/another/repo",
-						Remotes: []Remote{
+						Remotes: map[string]Remote{
 							//regardless of the remote URL used, we expect the contracted form to be used
-							{Name: "origin", URL: "https://github.com/another/repo"},
+							"origin": {URLs: []RemoteURL{"https://github.com/another/repo"}},
 						},
 					},
 					testIndexWithTwoRepos.Repos[0],
@@ -90,9 +90,9 @@ func TestGetNewForkAsRemote(t *testing.T) {
 				testIndexWithTwoRepos.Repos[0],
 				{
 					CheckoutPath: "github.com/git/git",
-					Remotes: []Remote{
-						{Name: "origin", URL: "https://github.com/git/git"},
-						{Name: "myfork", URL: "https://example.com/git"},
+					Remotes: map[string]Remote{
+						"origin": {URLs: []RemoteURL{"https://github.com/git/git"}},
+						"myfork": {URLs: []RemoteURL{"https://example.com/git"}},
 					},
 				},
 			},
@@ -116,8 +116,8 @@ func TestGetNewForkAsSeparate(t *testing.T) {
 			Repos: []*Repo{
 				{
 					CheckoutPath: "example.com/git",
-					Remotes: []Remote{
-						{Name: "origin", URL: "https://example.com/git"},
+					Remotes: map[string]Remote{
+						"origin": {URLs: []RemoteURL{"https://example.com/git"}},
 					},
 				},
 				testIndexWithTwoRepos.Repos[0],

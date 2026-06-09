@@ -4,6 +4,7 @@
 package rtree
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,13 +14,11 @@ import (
 	"strings"
 
 	"github.com/majewsky/gofu/internal/cli"
-
-	yaml "go.yaml.in/yaml/v3"
 )
 
-// Index represents the contents of the index file.
+// Index represents the contents of the index.json file.
 type Index struct {
-	Repos []*Repo `yaml:"repos"`
+	Repos []*Repo `json:"repos"`
 }
 
 // ReadIndex reads the index file.
@@ -28,19 +27,27 @@ func ReadIndex() (*Index, []error) {
 	buf, err := os.ReadFile(IndexPath)
 	if err != nil {
 		if os.IsNotExist(err) {
+			_, err := os.Stat(OldIndexPath)
+			if !os.IsNotExist(err) {
+				err = fmt.Errorf(
+					"old index format detected: upgrade to the new index format with this command:\n\t"+
+						`yq -o json < %s | jq --sort-keys '{ repos: .repos | map({ path, remotes: .remotes | map({ key: .name, value: { urls: [.url] }}) | from_entries }) }' > %s`,
+					OldIndexPath, IndexPath,
+				)
+				return nil, []error{err}
+			}
 			return &Index{Repos: nil}, nil
 		}
 		return nil, []error{err}
 	}
 
-	//deserialize YAML
+	//deserialize JSON
 	var index Index
-	err = yaml.Unmarshal(buf, &index)
+	err = json.Unmarshal(buf, &index)
 	if err != nil {
 		return nil, []error{err}
 	}
-
-	//validate YAML
+	//validate JSON
 	var errs []error
 	missing := func(key string, args ...any) {
 		errs = append(errs, fmt.Errorf("read %s: missing \"%s\"",
@@ -54,12 +61,14 @@ func ReadIndex() (*Index, []error) {
 		if len(repo.Remotes) == 0 {
 			missing("repos[%d].remotes", idx)
 		}
-		for idx2, remote := range repo.Remotes {
+		for remoteName, remote := range repo.Remotes {
 			switch {
-			case remote.Name == "":
-				missing("repos[%d].remotes[%d].name", idx, idx2)
-			case remote.URL == "":
-				missing("repos[%d].remotes[%d].url", idx, idx2)
+			case remoteName == "":
+				errs = append(errs, fmt.Errorf("read %s: empty key in \"repos[%d].remotes\"",
+					IndexPath, idx,
+				))
+			case len(remote.URLs) == 0:
+				missing("repos[%d].remotes[%q].urls", idx, remoteName)
 			}
 		}
 	}
@@ -77,7 +86,7 @@ func (r reposByAbsPath) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 // Write writes the index file to disk.
 func (i *Index) Write() error {
 	sort.Sort(reposByAbsPath(i.Repos))
-	buf, err := yaml.Marshal(i)
+	buf, err := json.MarshalIndent(i, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -129,12 +138,12 @@ func (i *Index) Rebuild() error {
 
 		//repo has been deleted - ask what to do
 		var remoteURLs []string
-		for _, remote := range repo.Remotes {
-			if remote.Name == "origin" {
-				remoteURLs = []string{remote.URL.CompactURL()}
-				break
+		if origin, ok := repo.Remotes["origin"]; ok {
+			remoteURLs = origin.CompactURLs()
+		} else {
+			for _, remote := range repo.Remotes {
+				remoteURLs = append(remoteURLs, remote.CompactURLs()...)
 			}
-			remoteURLs = append(remoteURLs, remote.URL.CompactURL())
 		}
 
 		repoPath := filepath.Join(RootPath, repo.CheckoutPath)
@@ -218,12 +227,14 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 	for _, repo := range i.Repos {
 		isCandidate := false
 		for _, remote := range repo.Remotes {
-			// be flexible about .git ending in remote
-			if remoteURL == remote.URL || remoteURL+".git" == remote.URL || remoteURL == remote.URL+".git" {
-				return repo, nil
-			}
-			if basename == path.Base(remote.URL.CanonicalURL()) {
-				isCandidate = true
+			for _, url := range remote.URLs {
+				// be flexible about .git ending in remote
+				if remoteURL == url || remoteURL+".git" == url || remoteURL == url+".git" {
+					return repo, nil
+				}
+				if basename == path.Base(url.CanonicalURL()) {
+					isCandidate = true
+				}
 			}
 		}
 		if isCandidate {
@@ -302,8 +313,8 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 
 	//report the existing remotes, and ask for the name of the new remote
 	prompt := "Existing remotes:\n"
-	for _, remote := range target.Remotes {
-		prompt += fmt.Sprintf("\t(%s) %s\n", remote.Name, remote.URL.CompactURL())
+	for remoteName, remote := range target.Remotes {
+		prompt += fmt.Sprintf("\t(%s) %s\n", remoteName, strings.Join(remote.CompactURLs(), " "))
 	}
 	prompt += fmt.Sprintf("Enter remote name for %s:", remoteURL)
 	remoteName, err := cli.Interface.ReadLine(prompt)
@@ -327,10 +338,9 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 		return nil, err
 	}
 
-	target.Remotes = append(target.Remotes, Remote{
-		Name: remoteName,
-		URL:  remoteURL,
-	})
+	target.Remotes[remoteName] = Remote{
+		URLs: []RemoteURL{remoteURL},
+	}
 	err = i.Write()
 	return target, err
 }
@@ -353,19 +363,20 @@ func (i *Index) ImportRepo(dirPath string) error {
 	}
 
 	//select the remote which determines the checkout path
-	choices := make([]cli.Choice, len(repo.Remotes))
+	choices := make([]cli.Choice, 0, len(repo.Remotes))
 	var checkoutPath string
-	for idx, remote := range repo.Remotes {
-		thisPath, err := remote.URL.CheckoutPath()
+	for remoteName, remote := range repo.Remotes {
+		// NOTE: This uses URLs[0] only because git fetches only from the first URL (the others are only for pushing).
+		thisPath, err := remote.URLs[0].CheckoutPath()
 		if err != nil {
 			return err
 		}
-		if remote.Name == "origin" {
+		if remoteName == "origin" {
 			//prefer "origin" over everything else
 			checkoutPath = thisPath
 			break
 		}
-		choices[idx] = cli.Choice{Return: thisPath, Text: thisPath}
+		choices = append(choices, cli.Choice{Return: thisPath, Text: thisPath})
 	}
 
 	//cannot decide myself -> let the user select

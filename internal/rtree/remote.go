@@ -4,6 +4,7 @@
 package rtree
 
 import (
+	"encoding/json"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -86,16 +87,16 @@ func (u RemoteURL) CheckoutPath() (string, error) {
 	return filepath.Join(parsed.Hostname(), parsed.Path), nil
 }
 
-// MarshalYAML implements the yaml.Marshaler interface.
-func (u RemoteURL) MarshalYAML() (any, error) {
+// MarshalJSON implements the json.Marshaler interface.
+func (u RemoteURL) MarshalJSON() ([]byte, error) {
 	//store URLs in the index in the canonical format
-	return u.CanonicalURL(), nil
+	return json.Marshal(u.CanonicalURL())
 }
 
-// UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (u *RemoteURL) UnmarshalYAML(unmarshal func(any) error) error {
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (u *RemoteURL) UnmarshalJSON(buf []byte) error {
 	var s string
-	err := unmarshal(&s)
+	err := json.Unmarshal(buf, &s)
 	if err == nil {
 		*u = ParseRemoteURL(s)
 	}

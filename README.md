@@ -91,7 +91,7 @@ There are a few other subcommands in `rtree`:
 * `rtree each <COMMAND>` executes the given command in each repository. My most common usecase is `rtree each git status --short`.
 * `rtree import <PATH>` takes a path to a local Git repo, and moves it to the correct place below `$GOPATH/src`.
 
-Finally, `rtree index` rebuilds the index file (`~/.rtree/index.yaml`) that all of these operations use to find repos
+Finally, `rtree index` rebuilds the index file (`~/.config/rtree/index.json`) that all of these operations use to find repos
 and remotes. If a repo is checked out, but not yet indexed, the index entry will be added. If the repo for an index
 entry is missing, the user will be prompted about what to do:
 
@@ -104,4 +104,4 @@ repository /x/src/github.com/Masterminds/sprig has been deleted
 ```
 
 One of the intended usecases is that stuff below `$GOPATH/src` does not need to be backed up. As long as the index file
-`~/.rtree/index.yaml` is backed up, all repos can be restored in one step with `yes r | rtree index`.
+`~/.config/rtree/index.json` is backed up, all repos can be restored in one step with `yes r | rtree index`.

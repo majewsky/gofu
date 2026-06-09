@@ -22,6 +22,11 @@ type RemoteAlias struct {
 // IndexPath is where the index file is stored.
 var IndexPath string
 
+// OldIndexPath is where the old index file was stored.
+// This is only used to detect if a system has not been upgraded to the new index format yet.
+// TODO: remove this after some time
+var OldIndexPath string
+
 // RootPath is the directory below which all repositories are located. Its value
 // is $GOPATH/src to match the repository layout created by `go get`.
 var RootPath string
@@ -44,7 +49,8 @@ func Init() bool {
 			cli.Interface.ShowError("$HOME is not set (rtree needs the HOME variable to locate its index file)")
 			ok = false //but keep going to report all errors at once
 		} else {
-			IndexPath = filepath.Join(homeDir, ".rtree/index.yaml")
+			IndexPath = filepath.Join(homeDir, ".config/rtree/index.json")
+			OldIndexPath = filepath.Join(homeDir, ".rtree/index.yaml")
 		}
 	}
 
