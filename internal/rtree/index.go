@@ -312,12 +312,13 @@ func (i *Index) FindRepo(rawRemoteURL string, allowClone bool) (*Repo, error) {
 	}
 
 	//report the existing remotes, and ask for the name of the new remote
-	prompt := "Existing remotes:\n"
+	var prompt strings.Builder
+	prompt.WriteString("Existing remotes:\n")
 	for remoteName, remote := range target.Remotes {
-		prompt += fmt.Sprintf("\t(%s) %s\n", remoteName, strings.Join(remote.CompactURLs(), " "))
+		fmt.Fprintf(&prompt, "\t(%s) %s\n", remoteName, strings.Join(remote.CompactURLs(), " "))
 	}
-	prompt += fmt.Sprintf("Enter remote name for %s:", remoteURL)
-	remoteName, err := cli.Interface.ReadLine(prompt)
+	fmt.Fprintf(&prompt, "Enter remote name for %s:", remoteURL)
+	remoteName, err := cli.Interface.ReadLine(prompt.String())
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-//Directory contains all data about a directory that the prompt needs.
+// Directory contains all data about a directory that the prompt needs.
 type Directory struct {
 	Path                  string
 	DisplayPath           string //formatted for display in prompt line
@@ -20,8 +20,7 @@ type Directory struct {
 	NearestAccessiblePath string
 }
 
-//CurrentDirectory prepares a Directory struct for the current working
-//directory.
+// CurrentDirectory prepares a Directory struct for the current working directory.
 func CurrentDirectory() Directory {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -30,7 +29,7 @@ func CurrentDirectory() Directory {
 	return NewDirectory(cwd)
 }
 
-//NewDirectory prepares a Directory struct for the given path.
+// NewDirectory prepares a Directory struct for the given path.
 func NewDirectory(path string) (dir Directory) {
 	dir.Path = path
 	dir.DisplayPath = path
@@ -82,7 +81,7 @@ func NewDirectory(path string) (dir Directory) {
 	return
 }
 
-//This part can benefit from a "return" in the middle, so it's in a separate function.
+// This part can benefit from a "return" in the middle, so it's in a separate function.
 func (dir *Directory) stripHomeDirFromDisplay() {
 	if !strings.HasPrefix(dir.DisplayPath, "/") {
 		return
@@ -129,8 +128,7 @@ func getDirectoryField(dir Directory, tt *TerminalTitle) string {
 		//cwd accessible -> highlight path elements inside the repo (if any)
 		if dir.Repo != nil && dir.Repo.RootPath != dir.Path {
 			rel, _ := filepath.Rel(dir.Repo.RootPath, dir.Path)
-			if strings.HasSuffix(dir.DisplayPath, rel) {
-				base := strings.TrimSuffix(dir.DisplayPath, rel)
+			if base, ok := strings.CutSuffix(dir.DisplayPath, rel); ok {
 				txt = withColor("0;36", base) + withColor("1;36", rel)
 			}
 		}
