@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/majewsky/gofu/internal/cli"
+	"git.xyrillian.de/gofu/internal/cli"
 )
 
 // Exec executes the prettyprompt applet and returns an exit code (0 for

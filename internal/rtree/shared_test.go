@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/majewsky/gofu/internal/cli"
+	"git.xyrillian.de/gofu/internal/cli"
 )
 
 // Path to a directory where tests can put their index files.

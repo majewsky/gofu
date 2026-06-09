@@ -6,7 +6,7 @@ package rtree
 import (
 	"strings"
 
-	"github.com/majewsky/gofu/internal/cli"
+	"git.xyrillian.de/gofu/internal/cli"
 )
 
 // Exec executes the rtree applet and returns an exit code (0 for success, >0

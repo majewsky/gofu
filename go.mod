@@ -1,4 +1,4 @@
-module github.com/majewsky/gofu
+module git.xyrillian.de/gofu
 
 go 1.25.0
 

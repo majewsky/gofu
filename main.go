@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/majewsky/gofu/internal/mdedit"
-	"github.com/majewsky/gofu/internal/prompt"
-	"github.com/majewsky/gofu/internal/rtree"
+	"git.xyrillian.de/gofu/internal/mdedit"
+	"git.xyrillian.de/gofu/internal/prompt"
+	"git.xyrillian.de/gofu/internal/rtree"
 )
 
 func main() {

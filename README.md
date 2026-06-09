@@ -11,15 +11,15 @@ house for protection.
 Alternatively, the name can also be read as
 "[Go](https://golang.org)-[fu](http://www.retrologic.com/jargon/F/suffix-fu.html)".
 
-# Installation
+## Installation
 
 ```bash
 $ make && make install
 ```
 
-# List of applets
+## List of applets
 
-## `mdedit`
+### `mdedit`
 
 This provides a very simple in-browser Markdown editor with a preview pane.
 Run as `mdedit path/to/document.md localhost:8080` and then navigate to
@@ -28,7 +28,7 @@ to the server (and thus to the source file) after one second of no typing.
 It is recommended to not listen on anything besides `localhost`; there is no
 authentication or anything.
 
-## `prettyprompt`
+### `prettyprompt`
 
 This renders my shell prompt. Among other things, it identifies the current
 host by name and signature color (in the screenshot below, dark green for
@@ -40,21 +40,22 @@ possible, e.g. if the cwd starts with `$GOPATH/src/`, that is shortened to
 
 ![prettyprompt screenshot](./screenshot-prettyprompt.png)
 
-## `rtree`
+### `rtree`
 
 This manages my Git repositories. Borrowing from the convention established by
 Go's `GOPATH`, the location of each local repository is defined by its remote
-URL. For example, this repo here will always be checked out at
+URL. For example, this repo here (when cloned from its primary upstream) will
+always be checked out at
 
 ```
-$GOPATH/src/github.com/majewsky/gofu
+$GOPATH/src/git.xyrillian.de/gofu
 ```
 
 The most common operation with `rtree` is to get a repository path:
 
 ```bash
-$ rtree get https://github.com/majewsky/gofu
-/x/src/github.com/majewsky/gofu
+$ rtree get https://git.xyrillian.de/gofu
+/x/src/git.xyrillian.de/gofu
 ```
 
 This will automatically clone the repo if it has not been cloned yet. Git URL aliases [like
@@ -66,9 +67,9 @@ means `cd to git repository` and is based on `rtree get`:
 ```bash
 $ pwd
 /home/stefan
-$ cg gh:majewsky/gofu
+$ cg xy:gofu
 $ pwd
-/x/src/github.com/majewsky/gofu
+/x/src/git.xyrillian.de/gofu
 ```
 
 When `rtree get` clones a new repo, it will look for existing repos with the

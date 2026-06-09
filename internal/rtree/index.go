@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/majewsky/gofu/internal/cli"
+	"git.xyrillian.de/gofu/internal/cli"
 )
 
 // Index represents the contents of the index.json file.

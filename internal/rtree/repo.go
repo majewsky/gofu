@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/majewsky/gofu/internal/cli"
+	"git.xyrillian.de/gofu/internal/cli"
 )
 
 // Repo describes the entry for a repository in the index file.
