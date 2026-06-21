@@ -190,8 +190,8 @@ func (i *Index) Rebuild() error {
 		repo, exists := existingRepos[newRepo.CheckoutPath]
 
 		// if a repo has no remotes, repo is nil which rtree cannot parse back and doesn't make sense to add anyway
-		if repo == nil || repo.Remotes == nil {
-			fmt.Printf("repository %s has no remotes; skipping", filepath.Join(RootPath, newRepo.CheckoutPath))
+		if exists && repo.Remotes == nil {
+			fmt.Printf("repository %s has no remotes; skipping\n", filepath.Join(RootPath, newRepo.CheckoutPath))
 			return nil
 		}
 
