@@ -28,6 +28,14 @@ to the server (and thus to the source file) after one second of no typing.
 It is recommended to not listen on anything besides `localhost`; there is no
 authentication or anything.
 
+If the `--with-mermaid` option is given, the in-browser editor will use
+[mermaid.js](https://mermaid.ai/open-source/intro/getting-started.html)
+to render graphs from all code snippets with the `mermaid` language,
+similar to how Mermaid integration is handled e.g. on GitHub.
+
+**Privacy notice:** Activating this flag will cause mdedit to load mermaid.js
+from <https://cdn.jsdelivr.net> on startup.
+
 ### `prettyprompt`
 
 This renders my shell prompt. Among other things, it identifies the current

@@ -29,9 +29,13 @@
   const receiveHTML = body => {
     $("div#preview").innerHTML = body;
     $("span#status").innerText = "Saved";
+
+    if (window.mermaid) {
+      mermaid.run({ querySelector: "div#preview code.language-mermaid" });
+    }
   };
 
-  // whenever the <textedit> changes, wait 3 seconds and then save all changes
+  // whenever the <textedit> changes, wait 1 second and then save all changes
   let timeoutID = null;
   const onTextChange = event => {
     if (timeoutID !== null) {
@@ -51,6 +55,11 @@
     };
     handleResponse(fetch("/data.md", opts), receiveHTML);
   };
+
+  // initialize Mermaid on startup
+  if (window.mermaid) {
+    window.mermaid.initialize({ startOnLoad: false });
+  }
 
   // load Markdown and rendered HTML on startup
   handleResponse(fetch("/data.md"), body => {

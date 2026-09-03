@@ -6,12 +6,17 @@ package mdedit
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/hex"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -22,10 +27,26 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 )
 
+var (
+	withMermaid bool
+)
+
 // Exec executes the mdedit applet and returns an exit code (0 for success, >0 for error).
-func Exec(args []string) int {
+func Exec(fullArgs []string) int {
+	// consume optional arguments
+	var args []string
+	for _, arg := range fullArgs {
+		switch arg {
+		case "--with-mermaid":
+			withMermaid = true
+		default:
+			args = append(args, arg)
+		}
+	}
+
+	// consume positional arguments
 	if len(args) != 2 {
-		os.Stderr.Write([]byte("  Usage: mdedit <file.md> <listenaddr>\nExample: mdedit todolist.md localhost:8080\n"))
+		os.Stderr.Write([]byte("  Usage: mdedit [--with-mermaid] <file.md> <listenaddr>\nExample: mdedit todolist.md localhost:8080\n   Note: If --with-mermaid is given, the UI may connect to https://cdn.jsdelivr.net to fetch mermaid.js\n"))
 		return 1
 	}
 	markdownPath, listenAddress := args[0], args[1]
@@ -36,6 +57,14 @@ func Exec(args []string) int {
 	m.HandleFunc("GET /{$}", l.handleGetFile("index.html", embeddedHTML))
 	m.HandleFunc("GET /res.css", l.handleGetFile("res.css", embeddedCSS))
 	m.HandleFunc("GET /res.js", l.handleGetFile("res.js", embeddedJS))
+	if withMermaid {
+		buf, err := loadMermaidJS()
+		if err != nil {
+			log.Println(err.Error())
+			return 1
+		}
+		m.HandleFunc("GET /mermaid.js", l.handleGetFile("mermaid.js", buf))
+	}
 	m.HandleFunc("GET /data.html", l.handleGetDataHTML)
 	m.HandleFunc("GET /data.md", l.handleGetDataMarkdown)
 	m.HandleFunc("PUT /data.md", l.handlePutDataMarkdown)
@@ -73,6 +102,29 @@ func Exec(args []string) int {
 	return int(exitCode.Load())
 }
 
+func loadMermaidJS() ([]byte, error) {
+	// load dependencies
+	const (
+		mermaidURL    = "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"
+		mermaidSHA256 = "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8"
+	)
+	resp, err := http.Get(mermaidURL)
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch %s: %w", mermaidURL, err)
+	}
+	defer resp.Body.Close()
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("could not read response from %s: %w", mermaidURL, err)
+	}
+	hash := sha256.Sum256(buf)
+	digest := hex.EncodeToString(hash[:])
+	if digest != mermaidSHA256 {
+		return nil, fmt.Errorf("expected %s to match %s, but got %s", mermaidURL, mermaidSHA256, digest)
+	}
+	return buf, nil
+}
+
 type logic struct {
 	MarkdownPath string
 }
@@ -84,11 +136,21 @@ var (
 	embeddedCSS []byte
 	//go:embed res/app.js
 	embeddedJS []byte
+
+	withMermaidBlockRx = regexp.MustCompile(`<with-mermaid>(.*)</with-mermaid>`)
 )
 
 // Handles `GET /` and `GET /res/...`.
 func (l logic) handleGetFile(name string, contents []byte) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if name == "index.html" {
+			if withMermaid {
+				contents = withMermaidBlockRx.ReplaceAll(contents, []byte("$1"))
+			} else {
+				contents = withMermaidBlockRx.ReplaceAll(contents, nil)
+			}
+		}
+
 		http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(contents))
 	}
 }
